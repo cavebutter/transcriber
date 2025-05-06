@@ -46,23 +46,29 @@ def ollama_request_think_tags(payload_:dict):
         return None
 
 
-if __name__ == "__main__":
-    # Get bullet points from the transcript
-    transcript_file = '/mnt/hdd/transcripts/SCE-4-1-25_diarized.txt'
+def get_bullet_summary(transcript_file:str):
     transcript = load_diarized_transcript(transcript_file)
     payload['prompt'] = bullet_prompt + transcript
     bullet_summary = ollama_request_think_tags(payload)
-    print(f"Summary: {bullet_summary}")
+    return bullet_summary
 
-    # Add an executive summary
+
+def get_exec_summary(bullet_summary:str):
     payload['prompt'] = exec_summary_prompt + bullet_summary
     exec_summary = ollama_request_think_tags(payload)
-    print(f"Summary: {exec_summary}")
+    return exec_summary
 
-    # Save the summary to a file
+
+def get_markdown_document(exec_summary:str, bullet_summary:str, output_file:str):
     payload['prompt'] = markdown_prompt + exec_summary + '\n\n' + bullet_summary
     markdown_document = ollama_request_think_tags(payload)
-    with open('../output/SCE-4-1-25_summary.md', 'w') as f:
+    with open(output_file, 'w') as f:
         f.write(exec_summary)
         f.write('\n\n')
         f.write(bullet_summary)
+    return markdown_document
+
+if __name__ == "__main__":
+    bullet_summary = get_bullet_summary('/mnt/hdd/transcripts/SCE-4-1-25_diarized.txt')
+    exec_summary = get_exec_summary(bullet_summary)
+    markdown_document = get_markdown_document(exec_summary, bullet_summary, '/mnt/hdd/transcripts/SCE-4-1-25_diarized.md')
