@@ -2,3 +2,5 @@
 ollama-models
 /.idea
 __pycache__/
+/audio_samples
+.env
