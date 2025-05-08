@@ -2,13 +2,10 @@ import os
 import subprocess as sp
 import whisper
 import torch
-from numpy.f2py.crackfortran import verbose
-from pyannote.audio.pipelines import SpeakerDiarization
-from transformers import pipeline
 from tqdm import tqdm
 import argparse
+import shutil
 
-HF_TOKEN = os.getenv('HF_TOKEN')
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -19,80 +16,59 @@ def parse_arguments():
                         choices=["tiny", "base", "small", "medium", "large", "large-v2"],
                         help="Whisper model size")
     parser.add_argument("--language", type=str, default="en", help="Language code for transcription")
-    # parser.add_argument("--summary_length", type=int, default=250, help="Maximum length of summary in tokens")
     return parser.parse_args()
 
 
 def convert_to_wav(audio_file: str, output_file: str):
     """
-    Convert audio file to wav format using ffmpeg with progress bar.
+    Convert audio file to wav format using ffmpeg.
     """
-    # First get the duration of the audio file
-    duration_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                    '-of', 'default=noprint_wrappers=1:nokey=1', audio_file]
-    duration = float(sp.check_output(duration_cmd, text=True).strip())
+    # Check if ffmpeg is installed
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg not found. Please install ffmpeg.")
 
-    # Set up the conversion command with progress information
+    print(f"Converting {audio_file} to WAV format...")
+
+    # Simplified ffmpeg command that avoids pipe reading that might hang
     command = [
-        'ffmpeg', '-i', audio_file, '-acodec', 'pcm_s16le',
-        '-ar', '16000', '-ac', '1',
-        '-progress', 'pipe:1', '-nostats', output_file
+        'ffmpeg',
+        '-i', audio_file,
+        '-acodec', 'pcm_s16le',
+        '-ar', '16000',
+        '-ac', '1',
+        '-y',  # Overwrite output file if it exists
+        output_file
     ]
 
-    # Create a progress bar
-    pbar = tqdm(total=100, desc="Converting audio", unit="%")
-
-    # Run the command and update the progress bar
-    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True)
-
-    last_progress = 0
-    while True:
-        line = process.stdout.readline()
-        if not line and process.poll() is not None:
-            break
-
-        # Parse progress information
-        if line.startswith("out_time_ms="):
-            try:
-                time_ms = int(line.split("=")[1])
-                progress = min(100, int(time_ms / 1000 / duration * 100))
-                # Update progress bar only on change to avoid excessive updates
-                if progress > last_progress:
-                    pbar.update(progress - last_progress)
-                    last_progress = progress
-            except (ValueError, IndexError):
-                pass
-
-    # Close the progress bar
-    pbar.close()
-
-    # Check if the conversion was successful
-    if process.returncode != 0:
-        stderr = process.stderr.read()
-        raise RuntimeError(f"Error converting audio: {stderr}")
-
-    return output_file
+    try:
+        # Use subprocess.run instead of Popen for simpler handling
+        process = sp.run(command, check=True, capture_output=True, text=True)
+        print(f"Successfully converted to {output_file}")
+        return output_file
+    except sp.CalledProcessError as e:
+        print(f"Error during conversion: {e.stderr}")
+        raise RuntimeError(f"Failed to convert audio file: {e}")
 
 
-def check_audio_format(audio_file:str):
+def check_audio_format(audio_file: str):
     """
     Check if the audio file is in wav format.
     """
-    if audio_file.endswith('.wav'):
-        return True
-    else:
-        return False
+    return audio_file.lower().endswith('.wav')
 
-def transcribe_audio(model, audio_file:str, language:str):
+
+def transcribe_audio(model_name, audio_file: str, language: str):
     """
     Transcribe audio file using Whisper model.
     """
-    print(f"Transcribing audio using whisper {model}...")
+    print(f"Transcribing audio using whisper {model_name}...")
     # Check for GPU availability and set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
+
     # Load the model
-    model = whisper.load_model(model, device=device)
+    model = whisper.load_model(model_name, device=device)
+
     # Transcribe the audio file with timestamps
     result = model.transcribe(
         audio_file,
@@ -103,10 +79,13 @@ def transcribe_audio(model, audio_file:str, language:str):
     return result
 
 
-def write_transcript_to_file(transcript, output_file:str):
+def write_transcript_to_file(transcript, output_file: str):
     """
     Write the transcript to a text file.
     """
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
     with open(output_file, 'w') as f:
         for segment in transcript['segments']:
             start = segment['start']
@@ -123,17 +102,26 @@ if __name__ == "__main__":
     whisper_model = args.whisper_model
     language = args.language
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Set up paths
+    base_filename = os.path.splitext(os.path.basename(audio_file))[0]
+    wav_output_path = os.path.join(output_dir, f"{base_filename}.wav")
+    transcript_output_path = os.path.join(output_dir, f"{base_filename}_transcription.txt")
 
     # Convert audio file to wav format if not already in wav format
     if not check_audio_format(audio_file):
-        print("Audio file is not in wav format. Converting...")
-        wav_file = convert_to_wav(audio_file, os.path.join(output_dir, "audio.wav"))
+        print(f"Audio file is not in wav format. Converting {audio_file}...")
+        wav_file = convert_to_wav(audio_file, wav_output_path)
         print(f"Converted audio file saved to {wav_file}")
     else:
-        print("Audio file is in wav format. Beginning transcription...")
+        print("Audio file is already in wav format. Using as is.")
         wav_file = audio_file
 
+    # Transcribe the audio
     transcription = transcribe_audio(whisper_model, wav_file, language)
-    write_transcript_to_file(transcription, os.path.join(output_dir, "output/test_transcription.txt"))
+
+    # Write the transcript to a file
+    write_transcript_to_file(transcription, transcript_output_path)
+    print("Processing complete!")
