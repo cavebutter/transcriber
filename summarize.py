@@ -14,7 +14,8 @@ payload = {
 }
 
 bullet_prompt = """What follows is a diarized transcript of a meeting between a number of people in the electric utility
-industry in the United States. Your output should be in markdown with the following sections: 
+industry in the United States. Topics discussed will be related to that or related to project management and software
+development activities to support the electric utility. Your output should be in markdown with the following sections: 
 1. For each key topic discussed: a name for the topic, bulleted list of key points, and action items related to each topic.
 Do not include anything else except for the above. No extraneous words. \n \n"""
 
@@ -31,20 +32,23 @@ H3: Any subordinate topics.
 The meeting title and date are identified by "Meeting Title:" and "meeting date:" in the text.
 No extraneous words and absolutely no additional formatting such as horizontal lines or em-dashes.\n \n"""
 
-# markdown_prompt = """You are being provided with 4 pieces of information. The first is an executive summary of a meeting
-# in markdown format. The second is a list of key topics, decisions, and action items discussed in the meeting, also in markdown format.
-# The third is the meeting title, identified by "Meeting Title:" in the text, and the fourth is the meeting date, identified by meeting date:" in the text.
-# Your task is to combine all of this information into a single markdown document formatted as follows:
-# H1: Meeting Name and Date
-# H2: Executive Summary
-# H2: Key Discussion Topics and Decisions
-# H3: Any subordinate topics
-# H2: Next Steps
-# Do not include any extraneous words or information. If the meeting title and date are not present in your response, my
-# boss will be very angry. Please make sure to include them.
-# """
-
-
+copy_edit_prompt = """
+You are a copy editor whose life depends on meticulously following these formatting rules and applying edits to the 
+supplied markdown document such that it is in strict conformance with the rules. Failure to do so will result in imprisonment
+and a heavy fine for you personally.
+H1: Meeting Name and Date. These are provided below in the text.
+H2: Executive Summary. This is provided in the text below. The executive summary must be included verbatim and not changed
+in any way aside from the formatting.
+H2: Key Discussion Topics and Decisions. This is provided in the text below following two blank lines after the executive
+summary. The key discussion topics and decisions must be included verbatim and not changed in any way aside from the formatting.
+H3: Any subordinate topics. These are provided in the text below as part of the key discussion topics and decisions. They 
+must be included verbatim and not changed in any way aside from the formatting.
+H2: Next Steps. These are provided in the text below as part of the key discussion topics and decisions. They must be included
+verbatim and not changed in any way aside from the formatting.
+This markdown will be applied to a CSS document and applied to a PDF. The CSS will handle all formatting and styling.
+Do not add any additional formatting or styling to the markdown. Do not add any additional text or information to the markdown.
+Remove any extraneous text or formatting in the markdown document that is not related to headings. This includes any em-dashes, horizontal lines, or other formatting.
+"""
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize a meeting transcript.")
@@ -138,14 +142,22 @@ def get_exec_summary(bullet_summary:str):
     return exec_summary
 
 
-def get_markdown_document(exec_summary:str, bullet_summary:str, output_file:str, title:str='Meeting', date:str=None):
-    payload['prompt'] = markdown_prompt + exec_summary + '\n\n' + bullet_summary + 'Meeting Title: ' + title + 'meeting date: ' + date if date else ''
+def get_markdown_document(exec_summary:str, bullet_summary:str, output_file:str):
+    payload['prompt'] = markdown_prompt + exec_summary + '\n\n' + bullet_summary
     markdown_document = ollama_request_think_tags(payload)
     with open(output_file, 'w') as f:
         f.write(exec_summary)
         f.write('\n\n')
         f.write(bullet_summary)
     return markdown_document
+
+
+def copy_edit_markdown_document(markdown_document:str, output_file:str, title:str, date:str):
+    payload['prompt'] = copy_edit_prompt + markdown_document + f"\n\nMeeting Title: {title}\nMeeting Date: {date}"
+    copy_edit_document = ollama_request_think_tags(payload)
+    with open(output_file, 'w') as f:
+        f.write(copy_edit_document)
+    return copy_edit_document
 
 
 if __name__ == "__main__":
@@ -167,7 +179,14 @@ if __name__ == "__main__":
         exec_summary,
         bullet_summary,
         output_file,
-        title=args.title or "Meeting",
-        date=args.date
     )
     print(f"Markdown document saved to {output_file}")
+    # Copy edit the markdown document
+    copy_edit_output_file = os.path.join(args.output_dir, f"{base_name}_copyedited.md")
+    copy_edit_markdown_document(
+        markdown_document,
+        copy_edit_output_file,
+        args.title,
+        args.date,
+    )
+    print(f"Copy-edited markdown document saved to {copy_edit_output_file}")
