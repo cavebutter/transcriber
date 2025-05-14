@@ -36,9 +36,11 @@ copy_edit_prompt = """
 You are a copy editor whose life depends on meticulously following these formatting rules and applying edits to the 
 supplied markdown document such that it is in strict conformance with the rules. Failure to do so will result in imprisonment
 and a heavy fine for you personally.
-H1: Meeting Name and Date. These are provided below in the text.
+H1: Meeting Name and Date. These are provided below in the text. Format the meeting name and date as a single line.
 H2: Executive Summary. This is provided in the text below. The executive summary must be included verbatim and not changed
 in any way aside from the formatting.
+Table of particpants. The list of participants must be formatted as a table with up to 4 columns and no header. Participants
+names will be inserted into each column, adding additonal rows if necessary. The table must be formatted as a markdown table.
 H2: Key Discussion Topics and Decisions. This is provided in the text below following two blank lines after the executive
 summary. The key discussion topics and decisions must be included verbatim and not changed in any way aside from the formatting.
 H3: Any subordinate topics. These are provided in the text below as part of the key discussion topics and decisions. They 
@@ -62,17 +64,23 @@ def parse_args():
 def load_diarized_transcript(transcript_file):
     """
     Load a transcript file based on its extension (.txt or .docx)
+
+    Returns:
+        tuple: (transcript_text, participants) where participants is a list or None
     """
     _, ext = os.path.splitext(transcript_file)
+    participants = None
 
     if ext.lower() == '.txt':
         with open(transcript_file) as f:
             transcript = f.read()
-        return transcript
     elif ext.lower() == '.docx':
-        return extract_text_from_docx(transcript_file)
+        transcript = extract_text_from_docx(transcript_file)
+        participants = extract_participants_from_teams_docx(transcript_file)
     else:
         raise ValueError(f"Unsupported file format: {ext}. Only .txt and .docx are supported.")
+
+    return transcript, participants
 
 
 def extract_text_from_docx(docx_file):
@@ -113,6 +121,50 @@ def extract_text_from_docx(docx_file):
     return '\n'.join(transcript_text)
 
 
+def extract_participants_from_teams_docx(docx_file):
+    """
+    Extract a list of unique participants from MS Teams transcript (.docx) file.
+    Cleans up names to remove timestamps and numeric indicators.
+
+    Args:
+        docx_file (str): Path to the MS Teams transcript docx file
+
+    Returns:
+        list: A list of unique participant names
+    """
+    print(f"Extracting participants from MS Teams transcript: {docx_file}...")
+    doc = docx.Document(docx_file)
+    participants = set()
+
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # In Teams transcripts, speaker is typically before the colon
+        if ':' in text and len(text.split(':')[0]) < 50:  # Simple heuristic for speaker line
+            speaker_info = text.split(':', 1)[0].strip()
+
+            # Clean up speaker info by extracting just the name
+            # Remove timestamps like (10:45) and numeric indicators like "35"
+            speaker_name = speaker_info
+
+            # Remove content in parentheses (like timestamps)
+            if '(' in speaker_name:
+                speaker_name = speaker_name.split('(')[0].strip()
+
+            # Remove any trailing numbers after the name with spaces
+            speaker_name = re.sub(r'\s+\d+\s*$', '', speaker_name)
+
+            # Only add non-empty names and avoid date-like entries
+            if speaker_name and not re.match(
+                    r'^(January|February|March|April|May|June|July|August|September|October|November|December)',
+                    speaker_name):
+                participants.add(speaker_name)
+
+    # Convert set to sorted list
+    return sorted(list(participants))
+
 def ollama_request_think_tags(payload_:dict):
     response = requests.post(address, json=payload)
     if response.status_code == 200:
@@ -129,11 +181,18 @@ def ollama_request_think_tags(payload_:dict):
         return None
 
 
-def get_bullet_summary(transcript_file:str):
-    transcript = load_diarized_transcript(transcript_file)
-    payload['prompt'] = bullet_prompt + transcript
+def get_bullet_summary(transcript_file: str):
+    transcript, participants = load_diarized_transcript(transcript_file)
+
+    # Update prompt with participant information if available
+    local_bullet_prompt = bullet_prompt
+    if participants:
+        participants_str = ", ".join(participants)
+        local_bullet_prompt += f"Meeting participants: {participants_str}\n\n"
+
+    payload['prompt'] = local_bullet_prompt + transcript
     bullet_summary = ollama_request_think_tags(payload)
-    return bullet_summary
+    return bullet_summary, participants
 
 
 def get_exec_summary(bullet_summary:str):
@@ -142,12 +201,29 @@ def get_exec_summary(bullet_summary:str):
     return exec_summary
 
 
-def get_markdown_document(exec_summary:str, bullet_summary:str, output_file:str):
-    payload['prompt'] = markdown_prompt + exec_summary + '\n\n' + bullet_summary
+def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: str, participants=None):
+    prompt = markdown_prompt
+
+    # Add participants table to the prompt if available
+    if participants and len(participants) > 0:
+        participants_md = "## Meeting Participants\n\n"
+        participants_md += "| Participant |\n|---|\n"
+        for participant in participants:
+            participants_md += f"| {participant} |\n"
+
+        prompt += "Include the following participants table after the executive summary:\n\n" + participants_md + "\n\n"
+
+    payload['prompt'] = prompt + exec_summary + '\n\n' + bullet_summary
     markdown_document = ollama_request_think_tags(payload)
     with open(output_file, 'w') as f:
         f.write(exec_summary)
         f.write('\n\n')
+        if participants and len(participants) > 0:
+            f.write("## Meeting Participants\n\n")
+            f.write("| Participant |\n|---|\n")
+            for participant in participants:
+                f.write(f"| {participant} |\n")
+            f.write('\n\n')
         f.write(bullet_summary)
     return markdown_document
 
@@ -173,12 +249,13 @@ if __name__ == "__main__":
     print(f"Processing transcript: {transcript_file}")
     print(f"Output will be saved to: {output_file}")
 
-    bullet_summary = get_bullet_summary(transcript_file)
+    bullet_summary, participants = get_bullet_summary(transcript_file)
     exec_summary = get_exec_summary(bullet_summary)
     markdown_document = get_markdown_document(
         exec_summary,
         bullet_summary,
         output_file,
+        participants
     )
     print(f"Markdown document saved to {output_file}")
     # Copy edit the markdown document
