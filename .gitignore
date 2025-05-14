@@ -4,3 +4,4 @@ ollama-models
 __pycache__/
 /audio_samples
 .env
+/transcript_samples
