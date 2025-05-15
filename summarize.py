@@ -39,8 +39,10 @@ and a heavy fine for you personally.
 H1: Meeting Name and Date. These are provided below in the text. Format the meeting name and date as a single line.
 H2: Executive Summary. This is provided in the text below. The executive summary must be included verbatim and not changed
 in any way aside from the formatting.
-Table of particpants. The list of participants must be formatted as a table with up to 4 columns and no header. Participants
-names will be inserted into each column, adding additonal rows if necessary. The table must be formatted as a markdown table.
+H2: Participants. Table of particpants. The list of participants must be formatted as a table with up to 4 columns and 
+no header. Participants' names will be inserted into each column, adding additonal rows if necessary. The table must be 
+formatted as a markdown table with no title or caption. The first row must not be bolded. The table should be placed 
+directly after the executive summary.
 H2: Key Discussion Topics and Decisions. This is provided in the text below following two blank lines after the executive
 summary. The key discussion topics and decisions must be included verbatim and not changed in any way aside from the formatting.
 H3: Any subordinate topics. These are provided in the text below as part of the key discussion topics and decisions. They 

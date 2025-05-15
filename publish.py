@@ -94,40 +94,14 @@ def ensure_css_file_exists():
 
 
 def convert_markdown_to_pdf(markdown_file, output_file=None, title=None, author=None, css_file=None):
-    """
-    Convert a markdown file to PDF using pandoc with custom styling.
-
-    Args:
-        markdown_file (str): Path to the markdown file
-        output_file (str, optional): Path for the output PDF file. If None, uses the same name as input with .pdf extension
-        title (str, optional): Document title
-        author (str, optional): Document author
-        css_file (str, optional): Path to CSS file for styling
-
-    Returns:
-        str: Path to the generated PDF file
-    """
-    if not os.path.exists(markdown_file):
-        raise FileNotFoundError(f"Markdown file not found: {markdown_file}")
-
-    # Create default output filename if not provided
-    if output_file is None:
-        output_file = os.path.splitext(markdown_file)[0] + '.pdf'
-    elif os.path.isdir(output_file):
-        # If output is a directory, create a filename based on the input file
-        base_name = os.path.basename(os.path.splitext(markdown_file)[0])
-        output_file = os.path.join(output_file, f"{base_name}.pdf")
-
-    # Ensure output directory exists
-    output_dir = os.path.dirname(output_file)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    # Use provided CSS file or ensure the default exists
+    """Convert a markdown file to PDF using pandoc and wkhtmltopdf with styling."""
     if css_file is None:
         css_file = ensure_css_file_exists()
 
-    # Use two-step approach directly as it's more reliable
+    if output_file is None:
+        # Default output file has the same name but .pdf extension
+        output_file = os.path.splitext(markdown_file)[0] + ".pdf"
+
     try:
         # Create a temporary directory for intermediate files
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -135,7 +109,106 @@ def convert_markdown_to_pdf(markdown_file, output_file=None, title=None, author=
             local_css = os.path.join(temp_dir, "style.css")
             shutil.copy2(css_file, local_css)
 
-            # Step 1: Convert markdown to HTML with proper title
+            # Create header and footer HTML files
+            header_file = os.path.join(temp_dir, "header.html")
+            footer_file = os.path.join(temp_dir, "footer.html")
+
+            # Extract meeting date from title if possible
+            meeting_date = ""
+            if title and "standup" in title.lower():
+                meeting_date = "Meeting Date: " + title.split("Standup")[1].strip()
+
+            # Create header HTML file
+            with open(header_file, 'w') as f:
+                f.write(f'''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+        }}
+        .header {{
+            text-align: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }}
+        .title {{
+            font-weight: bold;
+            font-size: 14pt;
+        }}
+        .date {{
+            font-style: italic;
+            font-size: 10pt;
+            color: #555;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">{title or "Meeting Summary"}</div>
+        <div class="date">{meeting_date}</div>
+    </div>
+</body>
+</html>''')
+
+            # Create footer HTML file
+            with open(footer_file, 'w') as f:
+                f.write('''<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .footer {
+            background-color: #000080;
+            color: white;
+            padding: 10px;
+            height: 1.2cm;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .company {
+            margin-left: 10px;
+        }
+        .logo {
+            text-align: center;
+            flex-grow: 1;
+        }
+        .logo img {
+            height: 1cm;
+        }
+        .page-number {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="footer">
+        <div class="company">Service provided by RealPM</div>
+        <div class="logo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAEGElEQVRoge3abYxcVRnG8d8zL7vdWaXdnd2dvi0iEQS0QBVoFREbCCAVCYpYQZOikWCiJmpCjPELhg+a+EFM/KKJftGYGI0ahcjLCm0BtUCgvIiCQGm3dLvtdnfedmd25vHDdoWy3dm5M3NnN5H7T+7ce855zvPcc++55z73iFKKjeTD2e4KFQ6MD3Jw/BCEmJjk4tYWYoFZ88nnmRhnsI+jRzmeoSwe55LVnZyX+lD8M+zgs2cN5NDkME/ufYQ/7H6a7Qf3nHbaWmkpL+O6td/klrW38IXVV1AVI0eOcv/j/ONlxkJkxrip+xt8Y9WXafTragp5Jvsy3//nT3lu31bGpkdrvr7eq1hV18pPL/sllzVcwo4XufNu9g+STWXCmZQGf3zZ/dy09oa6QobDNPf8/W5+t+uRvOWwrrmdP1zzIK21zWzZxnd+xJ5D0yQkwQn03XAXt627uW6QjmO7+db2m+mcOFCwLDY1reeBq37H8to1vPAyP/wxrxzIJIMk+cy6G7hn0+11g+wYeIFv/vUmeiYPFiXPza0b+fVVD1D2l4f4xVPTZHIyTpHA5KV1H+eX4brSQ57tepp1v7uEP+97sqiIOJUdI7u4ZtvNDO58gttv59+jYXKfYYIL29fxVGurq2NBkOHwGP84/CpPvP5XntvbQXdyb9HzaK5p5rlv/pclP7yJu3bHyGLkApRA39oNfK+j3dWxIEhx0D/Rxb7xA0wHk3THDzASP1JUN+uapZzvfJH73ueZ3bM55BIUjnW38MWu/UyncpjiQ3q7eaIgc7pS5XdWf5pvH+nk733TmGKBiJGp1/nrwRdY3+A+VHeIJkkcYDQYY3+ylwNJP/3JfgYnB5mKJkkm41RXVlNbXUtNVQ0L1FJRUUFddR3VGxJcsrKWCnehukL61vC1zdv4WSCFZRgssgYKQlOWcmzqKEN9PYyO9zM2Oczo5CBHp0YYnR5jeKqfIBMgEiMX2lTGHBqqG2ioWU5TXQPNC5bQtKCFlqZWLmi8kEWLW4gti1FbW8vRRZUSY627ZmqB7G3ihm8/zo+yGWzXXkwrSwzBOD9/FAwD0zQxTQvLsrBtG9u27c+4BLrjNfJAF1t2LF7KuxAnoylRVxBSiIaVDFmKZIT5lQ8lQoMeXNoZOW9IRrSQmBIyJOvkKEWRXMeUIRGlNMhgCpGSQW7MIEFLTkhMCRlE44rIdZQoY1tNJkN6x+r3FZPi2IoKcucNyYoUJZGjFEX6zpGQMo0K2VOsqCupji2JMeiRYm1DQMuSdE+yYqGiuP1ca8NJyKBCGmRQG3RsdwkDKIrTGftxVDGCVkRRfIWcV2RQIaMOKKooXtLIuJYmYkiSwzYX1e7KOu61oiq2IplWsR8zJO+mjFiOa7jXeVvWNlGW5y5cUV6vhdmUNPq4KxHVspiYPImSU0ZTjLZgy9leLVcYCUbpDgaIdPo7h3OCGZrGaAnGz/Y8ckq8AxoK1zJ/mj76AAAAAElFTkSuQmCC" alt="Logo"></div>
+        <div class="page-number">Page <span class="pageNumber"></span></div>
+    </div>
+    <script>
+        // Insert page number
+        var vars = {};
+        var x = document.location.search.substring(1).split('&');
+        for (var i in x) {
+            var z = x[i].split('=', 2);
+            vars[z[0]] = unescape(z[1]);
+        }
+        document.getElementsByClassName('pageNumber')[0].innerHTML = vars['page'];
+    </script>
+</body>
+</html>''')
+
+            # Step 1: Convert markdown to HTML
             html_file = os.path.join(temp_dir, "output.html")
             html_cmd = ['pandoc', os.path.abspath(markdown_file), '-o', html_file, '--standalone']
 
@@ -147,7 +220,7 @@ def convert_markdown_to_pdf(markdown_file, output_file=None, title=None, author=
 
             subprocess.run(html_cmd, check=True)
 
-            # Step 2: Convert HTML to PDF using wkhtmltopdf directly
+            # Step 2: Convert HTML to PDF using wkhtmltopdf with proper header and footer
             pdf_cmd = [
                 'wkhtmltopdf',
                 '--quiet',
@@ -157,6 +230,18 @@ def convert_markdown_to_pdf(markdown_file, output_file=None, title=None, author=
             # Add title if provided (wkhtmltopdf format)
             if title:
                 pdf_cmd.extend(['--title', title])
+
+            # Add header/footer options - using external HTML files
+            pdf_cmd.extend([
+                '--header-html', header_file,
+                '--footer-html', footer_file,
+                '--margin-top', '25mm',
+                '--margin-bottom', '25mm',
+                '--margin-left', '15mm',
+                '--margin-right', '15mm',
+                '--header-spacing', '5',
+                '--footer-spacing', '5',
+            ])
 
             # Add CSS and input/output files
             pdf_cmd.extend([
@@ -169,12 +254,8 @@ def convert_markdown_to_pdf(markdown_file, output_file=None, title=None, author=
             print(f"Successfully created PDF: {output_file}")
             return output_file
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error converting to PDF: {e}")
-        return None
-    except FileNotFoundError:
-        print("Error: pandoc or wkhtmltopdf not found. Please install with:")
-        print("  sudo apt-get install pandoc wkhtmltopdf")
+    except Exception as e:
+        print(f"Error: {e}")
         return None
 
 
