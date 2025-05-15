@@ -1,0 +1,124 @@
+@page {
+    size: letter;
+    margin: 2.5cm 1.5cm 2.5cm 1.5cm;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header styling */
+.header {
+    position: running(header);
+    text-align: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.title {
+    font-weight: bold;
+    font-size: 14pt;
+}
+
+.date {
+    font-style: italic;
+    font-size: 10pt;
+    color: #555;
+}
+
+/* Footer styling */
+.footer {
+    position: running(footer);
+    background-color: #000080; /* Navy blue background */
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.company {
+    margin-left: 10px;
+}
+
+.logo {
+    text-align: center;
+    flex-grow: 1;
+}
+
+.logo img {
+    height: 1cm;
+}
+
+.page-number {
+    margin-right: 10px;
+}
+
+/* Content styling */
+.content-container {
+    margin: 20px 0;
+}
+
+h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 0.5em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.3em;
+}
+
+h2 {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #34495e;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #7f8c8d;
+    margin-top: 1.2em;
+    margin-bottom: 0.5em;
+}
+
+p {
+    margin: 0.5em 0;
+}
+
+ul {
+    margin-left: 1.5em;
+    padding-left: 0;
+}
+
+li {
+    margin-bottom: 0.5em;
+}
+
+.participants-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.participants-table td {
+    padding: 5px;
+    border: 1px solid #ddd;
+}
+
+@page {
+    @top-center {
+        content: element(header);
+    }
+
+    @bottom-center {
+        content: element(footer);
+    }
+}

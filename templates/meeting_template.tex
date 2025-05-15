@@ -1,0 +1,83 @@
+
+\documentclass[11pt,letterpaper]{article}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{tabulary}
+\usepackage{booktabs}
+\usepackage{longtable}  % Added for long tables
+\usepackage{array}      % Added for better table handling
+\usepackage{titlesec}
+
+% Define tightlist command used by pandoc
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Define navy blue color
+\definecolor{navy}{RGB}{0,0,128}
+
+% Page geometry
+\geometry{letterpaper,margin=1in,headheight=20pt}
+
+% Set up fancy headers and footers
+\pagestyle{fancy}
+\fancyhf{} % Clear all header and footer fields
+
+% Header with title and date
+\fancyhead[C]{\textbf{$title$} $if(date)$-- $date$$endif$}
+
+% Footer with navy background
+\fancyfoot[L]{%
+  \colorbox{navy}{%
+    \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
+      \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+    }%
+  }%
+}
+
+% Apply to first page too
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyhead[C]{\textbf{$title$} $if(date)$-- $date$$endif$}
+  \fancyfoot[L]{%
+    \colorbox{navy}{%
+      \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
+        \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+      }%
+    }%
+  }%
+}
+
+% Format section headings
+\titleformat*{\section}{\Large\bfseries\color{navy}}
+\titleformat*{\subsection}{\large\bfseries\color{navy}}
+
+% Setup hyperlinks
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  filecolor=blue,
+  urlcolor=blue,
+  pdftitle={$title$},
+  pdfauthor={$author$}
+}
+
+% Document begin
+\begin{document}
+
+$if(title)$
+\begin{center}
+\LARGE{\textbf{$title$}}
+
+$if(date)$
+\vspace{0.5cm}
+\large{$date$}
+$endif$
+\end{center}
+$endif$
+
+$body$
+
+\end{document}
