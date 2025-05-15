@@ -10,6 +10,7 @@
 \usepackage{longtable}  % Added for long tables
 \usepackage{array}      % Added for better table handling
 \usepackage{titlesec}
+\usepackage{enumitem}   % Added for control over list spacing
 
 % Define tightlist command used by pandoc
 \providecommand{\tightlist}{%
@@ -21,12 +22,16 @@
 % Page geometry
 \geometry{letterpaper,margin=1in,headheight=20pt}
 
+% Configure list spacing
+\setlist{itemsep=0.5\baselineskip, parsep=0pt, topsep=0.5\baselineskip}
+\setlist[itemize]{leftmargin=*}  % This ensures proper alignment of bullets
+
 % Set up fancy headers and footers
 \pagestyle{fancy}
 \fancyhf{} % Clear all header and footer fields
 
-% Header with title and date
-\fancyhead[C]{\textbf{$title$} $if(date)$-- $date$$endif$}
+% Header with title and date - smaller font and left-aligned
+\fancyhead[L]{\small\textbf{$title$} $if(date)$-- $date$$endif$}
 
 % Footer with navy background
 \fancyfoot[L]{%
@@ -40,19 +45,37 @@
 % Apply to first page too
 \fancypagestyle{plain}{
   \fancyhf{}
-  \fancyhead[C]{\textbf{$title$} $if(date)$-- $date$$endif$}
+  \fancyhead[L]{\small\textbf{$title$} $if(date)$-- $date$$endif$}
   \fancyfoot[L]{%
     \colorbox{navy}{%
       \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
-        \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+        \color{white}\hspace{5pt}RealRecap provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
       }%
     }%
   }%
 }
 
-% Format section headings
-\titleformat*{\section}{\Large\bfseries\color{navy}}
-\titleformat*{\subsection}{\large\bfseries\color{navy}}
+% Remove section numbering completely
+\setcounter{secnumdepth}{0}  % Set to 0 to disable all section numbering
+
+% Format section headings without numbers
+\titleformat{\section}
+  {\Large\bfseries\color{navy}}
+  {}{0em}{}
+
+\titleformat{\subsection}
+  {\large\bfseries\color{navy}}
+  {}{0em}{}
+
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{navy}}
+  {}{0em}{}
+
+% Define a command for action items heading to align with bullet points
+\newcommand{\actionitems}[1]{%
+  \par\medskip
+  \noindent\hspace{\dimexpr\leftmargini-\leftmargin\relax}\textbf{#1}\par
+}
 
 % Setup hyperlinks
 \hypersetup{

@@ -23,12 +23,12 @@ development activities to support the electric utility.
 
 Your output should be in proper markdown format with the following:
 1. Use ** for bold text (e.g., **important point**)
-2. Use ### for topic headings (level 3 headers)
+2. Use ## for topic headings (level 2 headers) - DO NOT use ### headers
 3. Use - for bulleted lists
 4. Use blank lines between paragraphs
 
 You must include the following sections: 
-1. For each key topic discussed: a name for the topic as a level 3 header (###), a bulleted list of key points using dashes (-), and action items highlighted in bold.
+1. For each key topic discussed: a name for the topic as a level 2 header (##), a bulleted list of key points using dashes (-), and action items highlighted in bold.
 Do not include anything else except for the above. No extraneous words or HTML formatting. \n \n"""
 
 
@@ -204,16 +204,13 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
         # Participants Section if available
         if participants and len(participants) > 0:
             f.write("## Meeting Participants\n\n")
-            # Create 4-column table for participants
+            # Create 4-column table for participants without headers
             cols = 4
             rows = (len(participants) + cols - 1) // cols  # Ceiling division
 
-            # Create markdown table with empty headers
-            headers = "| " + " | ".join(["Participant"] * min(cols, len(participants))) + " |\n"
-            separator = "| " + " | ".join(["---"] * min(cols, len(participants))) + " |\n"
-
-            f.write(headers)
-            f.write(separator)
+            # Create markdown table without headers, just separators
+            f.write("| | | | |\n")
+            f.write("| --- | --- | --- | --- |\n")
 
             # Fill table with participants
             for i in range(rows):
@@ -227,8 +224,8 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
                 f.write(row.strip() + "\n")
             f.write('\n\n')
 
-        # Key Discussion Topics Section
-        f.write("## Key Discussion Topics and Decisions\n\n")
+        # Key Discussion Topics Section - changed from level 2 to level 1
+        f.write("# Key Discussion Topics and Decisions\n\n")
 
         # Ensure proper markdown formatting
         # Replace HTML tags with markdown equivalents
@@ -236,7 +233,10 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
         cleaned_summary = cleaned_summary.replace("<strong>", "**").replace("</strong>", "**")
         cleaned_summary = cleaned_summary.replace("<ul>", "").replace("</ul>", "")
         cleaned_summary = cleaned_summary.replace("<li>", "- ").replace("</li>", "")
-        cleaned_summary = cleaned_summary.replace("<h3>", "### ").replace("</h3>", "")
+
+        # Important: Change <h3> tags to ## (level 2 headers) to make them 2.x in the outline
+        cleaned_summary = cleaned_summary.replace("<h3>", "## ").replace("</h3>", "")
+
         cleaned_summary = cleaned_summary.replace("<p>", "").replace("</p>", "\n\n")
 
         f.write(cleaned_summary)
@@ -286,7 +286,7 @@ def markdown_to_html(title, date, exec_summary, bullet_summary, participants, ou
     # Convert bullet summary to HTML
     bullet_html = markdown_to_html_content(bullet_summary)
 
-    # Format participants into a table with up to 4 columns
+    # Format participants into a table with up to 4 columns, no headers
     participants_html = ""
     if participants:
         participants_html = "<table class='participants-table'>"
