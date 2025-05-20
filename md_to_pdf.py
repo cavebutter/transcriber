@@ -77,7 +77,7 @@ def create_latex_template(template_dir, force_update=True):
   \fancyfoot[L]{%
     \colorbox{navy}{%
       \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
-        \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+        \color{white}\hspace{5pt}RealRecap by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
       }%
     }%
   }%
