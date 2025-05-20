@@ -18,9 +18,14 @@ def ensure_template_directory():
     return template_dir
 
 
-def create_latex_template(template_dir):
+def create_latex_template(template_dir, force_update=True):
     """Create or update the LaTeX template file."""
     template_path = os.path.join(template_dir, "meeting_template.tex")
+
+    # Check if template exists and force_update is False
+    if os.path.exists(template_path) and not force_update:
+        print(f"Using existing template at: {template_path}")
+        return template_path
 
     template_content = r"""
 \documentclass[11pt,letterpaper]{article}
@@ -34,11 +39,14 @@ def create_latex_template(template_dir):
 \usepackage{longtable}  % Added for long tables
 \usepackage{array}      % Added for better table handling
 \usepackage{titlesec}
-\usepackage{enumitem}   % Added for control over list spacing
+\usepackage{enumitem} % For custom list formatting
 
 % Define tightlist command used by pandoc
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+  
+% Ensure bullet points use actual bullets, not numbers
+\setlist[itemize]{label=\textbullet}
 
 % Define navy blue color
 \definecolor{navy}{RGB}{0,0,128}
@@ -46,22 +54,18 @@ def create_latex_template(template_dir):
 % Page geometry
 \geometry{letterpaper,margin=1in,headheight=20pt}
 
-% Configure list spacing
-\setlist{itemsep=0.5\baselineskip, parsep=0pt, topsep=0.5\baselineskip}
-\setlist[itemize]{leftmargin=*}  % This ensures proper alignment of bullets
-
 % Set up fancy headers and footers
 \pagestyle{fancy}
 \fancyhf{} % Clear all header and footer fields
 
-% Header with title and date - smaller font and left-aligned
-\fancyhead[L]{\small\textbf{$title$} $if(date)$-- $date$$endif$}
+% Header with title and date
+\fancyhead[L]{\textbf{$title$} $if(date)$-- $date$$endif$}
 
 % Footer with navy background
 \fancyfoot[L]{%
   \colorbox{navy}{%
     \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
-      \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+      \color{white}\hspace{5pt}RealRecap by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
     }%
   }%
 }
@@ -69,37 +73,19 @@ def create_latex_template(template_dir):
 % Apply to first page too
 \fancypagestyle{plain}{
   \fancyhf{}
-  \fancyhead[L]{\small\textbf{$title$} $if(date)$-- $date$$endif$}
+  \fancyhead[C]{\textbf{$title$} $if(date)$-- $date$$endif$}
   \fancyfoot[L]{%
     \colorbox{navy}{%
       \parbox{\dimexpr\textwidth+2\fboxsep\relax}{%
-        \color{white}\hspace{5pt}RealRecap provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
+        \color{white}\hspace{5pt}Service provided by RealPM\hfill\hspace{5pt}Page \thepage\hspace{5pt}%
       }%
     }%
   }%
 }
 
-% Remove section numbering completely
-\setcounter{secnumdepth}{0}  % Set to 0 to disable all section numbering
-
-% Format section headings without numbers
-\titleformat{\section}
-  {\Large\bfseries\color{navy}}
-  {}{0em}{}
-
-\titleformat{\subsection}
-  {\large\bfseries\color{navy}}
-  {}{0em}{}
-
-\titleformat{\subsubsection}
-  {\normalsize\bfseries\color{navy}}
-  {}{0em}{}
-
-% Define a command for action items heading to align with bullet points
-\newcommand{\actionitems}[1]{%
-  \par\medskip
-  \noindent\hspace{\dimexpr\leftmargini-\leftmargin\relax}\textbf{#1}\par
-}
+% Format section headings
+\titleformat*{\section}{\Large\bfseries\color{navy}}
+\titleformat*{\subsection}{\large\bfseries\color{navy}}
 
 % Setup hyperlinks
 \hypersetup{
@@ -133,9 +119,8 @@ $body$
     with open(template_path, 'w') as f:
         f.write(template_content)
 
-    print(f"LaTeX template created at: {template_path}")
+    print(f"LaTeX template created/updated at: {template_path}")
     return template_path
-
 
 def convert_md_to_pdf(markdown_file, output_file=None, title=None, date=None, author=None):
     """Convert markdown directly to PDF using pandoc with LaTeX."""
@@ -147,9 +132,9 @@ def convert_md_to_pdf(markdown_file, output_file=None, title=None, date=None, au
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # Create template
+    # Create template with force_update=True to ensure changes are applied
     template_dir = ensure_template_directory()
-    template_file = create_latex_template(template_dir)
+    template_file = create_latex_template(template_dir, force_update=True)
 
     # Format date if not provided
     if not date:

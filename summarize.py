@@ -10,7 +10,7 @@ import shutil
 from md_to_pdf import convert_md_to_pdf
 
 address = 'http://localhost:11434/api/generate'
-model = 'qwen3-summarizer'
+model = None
 payload = {
     'model': model,
     'prompt': None,
@@ -24,8 +24,9 @@ development activities to support the electric utility.
 Your output should be in proper markdown format with the following:
 1. Use ** for bold text (e.g., **important point**)
 2. Use ## for topic headings (level 2 headers) - DO NOT use ### headers
-3. Use - for bulleted lists
+3. Use - for bulleted lists (always use a dash followed by a space)
 4. Use blank lines between paragraphs
+5. Never use numbered lists for bullet points
 
 You must include the following sections: 
 1. For each key topic discussed: a name for the topic as a level 2 header (##), a bulleted list of key points using dashes (-), and action items highlighted in bold.
@@ -34,7 +35,9 @@ Do not include anything else except for the above. No extraneous words or HTML f
 
 exec_summary_prompt = """What follows is a list of key topics discussed in a meeting between a number of people in the electric utility.
 Your output should be in plain text using markdown formatting (use ** for bold, not HTML tags).
-Your output will be limited to a single paragraph executive summary of the meeting and the action items from each section.
+Your output MUST BE EXACTLY ONE PARAGRAPH for the executive summary of the meeting.
+Do not include multiple paragraphs or bullet points in your summary.
+Focus only on the most critical information and keep your summary concise (under 150 words).
 No extraneous words or HTML formatting at all.\n \n"""
 
 
@@ -42,6 +45,7 @@ No extraneous words or HTML formatting at all.\n \n"""
 # We'll convert the markdown to HTML later
 
 def parse_args():
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Summarize a meeting transcript.")
     parser.add_argument('transcript_file', type=str, help='Path to the transcript file (.txt or .docx)')
     parser.add_argument('--title', '-t', type=str, help='Title of the meeting')
@@ -49,8 +53,10 @@ def parse_args():
     parser.add_argument('--output-dir', '-o', type=str, default='.', help='Directory to save the output files')
     parser.add_argument('--format', '-f', type=str, choices=['md', 'html', 'pdf'], default='html',
                         help='Output format (md=markdown, html=HTML, pdf=PDF)')
+    parser.add_argument('--model', '-m', type=str, default='qwen3-summarizer:14b',
+                        choices=['qwen3-summarizer:14b', 'qwen3-summarizer:30b'],
+                        help='Model to use for summarization')
     return parser.parse_args()
-
 
 def load_diarized_transcript(transcript_file):
     """
@@ -173,7 +179,7 @@ def ollama_request_think_tags(payload_: dict):
         return None
 
 
-def get_bullet_summary(transcript_file: str):
+def get_bullet_summary(transcript_file: str, model_name: str):
     transcript, participants = load_diarized_transcript(transcript_file)
 
     # Update prompt with participant information if available
@@ -182,12 +188,14 @@ def get_bullet_summary(transcript_file: str):
         participants_str = ", ".join(participants)
         local_bullet_prompt += f"Meeting participants: {participants_str}\n\n"
 
+    payload['model'] = model_name
     payload['prompt'] = local_bullet_prompt + transcript
     bullet_summary = ollama_request_think_tags(payload)
     return bullet_summary, participants
 
 
-def get_exec_summary(bullet_summary: str):
+def get_exec_summary(bullet_summary: str, model_name: str):
+    payload['model'] = model_name
     payload['prompt'] = exec_summary_prompt + bullet_summary
     exec_summary = ollama_request_think_tags(payload)
     return exec_summary
@@ -319,7 +327,6 @@ def markdown_to_html(title, date, exec_summary, bullet_summary, participants, ou
     )
 
     return html_content
-
 
 
 def create_css_template(css_path):
@@ -471,7 +478,7 @@ def create_html_template(template_path):
     </div>
 
     <div class="footer">
-        <div class="company">Service provided by RealPM</div>
+        <div class="company">RealRecap by RealPM</div>
         <div class="logo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAAEGElEQVRoge3abYxcVRnG8d8zL7vdWaXdnd2dvi0iEQS0QBVoFREbCCAVCYpYQZOikWCiJmpCjPELhg+a+EFM/KKJftGYGI0ahcjLCm0BtUCgvIiCQGm3dLvtdnfedmd25vHDdoWy3dm5M3NnN5H7T+7ce855zvPcc++55z73iFKKjeTD2e4KFQ6MD3Jw/BCEmJjk4tYWYoFZ88nnmRhnsI+jRzmeoSwe55LVnZyX+lD8M+zgs2cN5NDkME/ufYQ/7H6a7Qf3nHbaWmkpL+O6td/klrW38IXVV1AVI0eOcv/j/ONlxkJkxrip+xt8Y9WXafTragp5Jvsy3//nT3lu31bGpkdrvr7eq1hV18pPL/sllzVcwo4XufNu9g+STWXCmZQGf3zZ/dy09oa6QobDNPf8/W5+t+uRvOWwrrmdP1zzIK21zWzZxnd+xJ5D0yQkwQn03XAXt627uW6QjmO7+db2m+mcOFCwLDY1reeBq37H8to1vPAyP/wxrxzIJIMk+cy6G7hn0+11g+wYeIFv/vUmeiYPFiXPza0b+fVVD1D2l4f4xVPTZHIyTpHA5KV1H+eX4brSQ57tepp1v7uEP+97sqiIOJUdI7u4ZtvNDO58gttv59+jYXKfYYIL29fxVGurq2NBkOHwGP84/CpPvP5XntvbQXdyb9HzaK5p5rlv/pclP7yJu3bHyGLkApRA39oNfK+j3dWxIEhx0D/Rxb7xA0wHk3THDzASP1JUN+uapZzvfJH73ueZ3bM55BIUjnW38MWu/UyncpjiQ3q7eaIgc7pS5XdWf5pvH+nk733TmGKBiJGp1/nrwRdY3+A+VHeIJkkcYDQYY3+ylwNJP/3JfgYnB5mKJkkm41RXVlNbXUtNVQ0L1FJRUUFddR3VGxJcsrKWCnehukL61vC1zdv4WSCFZRgssgYKQlOWcmzqKEN9PYyO9zM2Oczo5CBHp0YYnR5jeKqfIBMgEiMX2lTGHBqqG2ioWU5TXQPNC5bQtKCFlqZWLmi8kEWLW4gti1FbW8vRRZUSY627ZmqB7G3ihm8/zo+yGWzXXkwrSwzBOD9/FAwD0zQxTQvLsrBtG9u27c+4BLrjNfJAF1t2LF7KuxAnoylRVxBSiIaVDFmKZIT5lQ8lQoMeXNoZOW9IRrSQmBIyJOvkKEWRXMeUIRGlNMhgCpGSQW7MIEFLTkhMCRlE44rIdZQoY1tNJkN6x+r3FZPi2IoKcucNyYoUJZGjFEX6zpGQMo0K2VOsqCupji2JMeiRYm1DQMuSdE+yYqGiuP1ca8NJyKBCGmRQG3RsdwkDKIrTGftxVDGCVkRRfIWcV2RQIaMOKKooXtLIuJYmYkiSwzYX1e7KOu61oiq2IplWsR8zJO+mjFiOa7jXeVvWNlGW5y5cUV6vhdmUNPq4KxHVspiYPImSU0ZTjLZgy9leLVcYCUbpDgaIdPo7h3OCGZrGaAnGz/Y8ckq8AxoK1zJ/mj76AAAAAElFTkSuQmCC" alt="Logo"></div>
         <div class="page-number">Page </div>
     </div>
@@ -583,6 +590,7 @@ if __name__ == "__main__":
 
     # Get transcript file from args
     transcript_file = args.transcript_file
+    model_name = args.model
 
     # Create base output filename with same name but different extension in the specified output directory
     base_name = os.path.basename(os.path.splitext(transcript_file)[0])
@@ -591,16 +599,16 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    print(f"Processing transcript: {transcript_file}")
+    print(f"Processing transcript: {transcript_file} with model {model_name}")
 
     # Process the transcript
-    bullet_summary, participants = get_bullet_summary(transcript_file)
-    exec_summary = get_exec_summary(bullet_summary)
+    bullet_summary, participants = get_bullet_summary(transcript_file, model_name)
+    exec_summary = get_exec_summary(bullet_summary, model_name)
 
     # Output handling based on selected format
     if args.format in ['md', 'html', 'pdf']:
         # Always generate markdown version first
-        md_output_file = os.path.join(args.output_dir, f"{base_name}.md")
+        md_output_file = os.path.join(args.output_dir, f"{base_name}--{model_name.replace(':', '-')}.md")
         exec_summary, bullet_summary_str, participants = get_markdown_document(
             exec_summary,
             bullet_summary,
@@ -628,7 +636,7 @@ if __name__ == "__main__":
 
             # Generate PDF if requested
             if args.format == 'pdf':
-                pdf_output_file = os.path.join(args.output_dir, f"{base_name}.pdf")
+                pdf_output_file = os.path.join(args.output_dir, f"{base_name}--{model_name.replace(':', '-')}.pdf")
 
                 # REPLACE THIS LINE:
                 # generate_pdf_from_html(html_content, pdf_output_file)
@@ -639,7 +647,7 @@ if __name__ == "__main__":
                     pdf_output_file,
                     args.title,
                     args.date,
-                    "Meeting Summarization System"  # Or any author you want
+                    "RealRecap"  # Or any author you want
                 )
                 print(f"PDF document saved to {pdf_output_file}")
     else:
