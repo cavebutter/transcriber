@@ -23,22 +23,33 @@ development activities to support the electric utility.
 
 Your output should be in proper markdown format with the following:
 1. Use ** for bold text (e.g., **important point**)
-2. Use ## for topic headings (level 2 headers) - DO NOT use ### headers
+2. Use ## for topic headings (level 2 headers) - DO NOT use numbered sections or ### headers
 3. Use - for bulleted lists (always use a dash followed by a space)
 4. Use blank lines between paragraphs
 5. Never use numbered lists for bullet points
+6. DO NOT include any numbering (1.0.1, 2.1, etc.) in headers or sections
+7. DO NOT create subsections under topic headers
 
 You must include the following sections: 
-1. For each key topic discussed: a name for the topic as a level 2 header (##), a bulleted list of key points using dashes (-), and action items highlighted in bold.
-Do not include anything else except for the above. No extraneous words or HTML formatting. \n \n"""
+1. For each key topic discussed: a descriptive name as a level 2 header (##), followed by a bulleted list of key points using dashes (-), with action items highlighted in bold.
+
+Do not include anything else except for the above. No extraneous words, HTML formatting, or numbered sections. \n \n"""
 
 
-exec_summary_prompt = """What follows is a list of key topics discussed in a meeting between a number of people in the electric utility.
-Your output should be in plain text using markdown formatting (use ** for bold, not HTML tags).
-Your output MUST BE EXACTLY ONE PARAGRAPH for the executive summary of the meeting.
-Do not include multiple paragraphs or bullet points in your summary.
-Focus only on the most critical information and keep your summary concise (under 150 words).
-No extraneous words or HTML formatting at all.\n \n"""
+
+exec_summary_prompt = """What follows is a list of key topics discussed in a meeting between a number of people in the 
+electric utility industry. The topic will be related to this, or to project management and software development 
+activities to support the electric utility.
+
+Your output MUST BE EXACTLY ONE PARAGRAPH that summarizes the meeting.
+- Use plain text with markdown formatting (use ** for bold, not HTML tags)
+- Write as a single continuous paragraph with no line breaks
+- Focus only on the most critical information
+- Keep your summary concise (under 150 words)
+- Do not include bullet points, numbered lists, or multiple paragraphs
+- No extraneous words or HTML formatting at all
+
+Write only the executive summary paragraph and nothing else.\n \n"""
 
 
 # Keep the existing prompts for generating the content in markdown format
@@ -206,7 +217,16 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
     with open(output_file, 'w') as f:
         # Executive Summary Section
         f.write("# Executive Summary\n\n")
-        f.write(exec_summary)
+
+        # Clean and ensure single paragraph
+        cleaned_exec = exec_summary.strip()
+        # Remove any headers or numbering that might have been added
+        cleaned_exec = re.sub(r'^#+\s*.*$', '', cleaned_exec, flags=re.MULTILINE)
+        cleaned_exec = re.sub(r'^\d+\.[\d\.]*\s*.*$', '', cleaned_exec, flags=re.MULTILINE)
+        cleaned_exec = re.sub(r'\n\s*\n', ' ', cleaned_exec)  # Collapse multiple newlines
+        cleaned_exec = cleaned_exec.strip()
+
+        f.write(cleaned_exec)
         f.write('\n\n')
 
         # Participants Section if available
@@ -214,13 +234,11 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
             f.write("## Meeting Participants\n\n")
             # Create 4-column table for participants without headers
             cols = 4
-            rows = (len(participants) + cols - 1) // cols  # Ceiling division
+            rows = (len(participants) + cols - 1) // cols
 
-            # Create markdown table without headers, just separators
             f.write("| | | | |\n")
             f.write("| --- | --- | --- | --- |\n")
 
-            # Fill table with participants
             for i in range(rows):
                 row = "| "
                 for j in range(cols):
@@ -232,25 +250,27 @@ def get_markdown_document(exec_summary: str, bullet_summary: str, output_file: s
                 f.write(row.strip() + "\n")
             f.write('\n\n')
 
-        # Key Discussion Topics Section - changed from level 2 to level 1
+        # Key Discussion Topics Section
         f.write("# Key Discussion Topics and Decisions\n\n")
 
-        # Ensure proper markdown formatting
-        # Replace HTML tags with markdown equivalents
+        # Clean up the bullet summary
         cleaned_summary = bullet_summary
+
+        # Remove HTML tags
         cleaned_summary = cleaned_summary.replace("<strong>", "**").replace("</strong>", "**")
         cleaned_summary = cleaned_summary.replace("<ul>", "").replace("</ul>", "")
         cleaned_summary = cleaned_summary.replace("<li>", "- ").replace("</li>", "")
-
-        # Important: Change <h3> tags to ## (level 2 headers) to make them 2.x in the outline
-        cleaned_summary = cleaned_summary.replace("<h3>", "## ").replace("</h3>", "")
-
         cleaned_summary = cleaned_summary.replace("<p>", "").replace("</p>", "\n\n")
+
+        # Remove numbered sections and convert to proper headers
+        cleaned_summary = re.sub(r'^\d+\.[\d\.]*\s*(.*?)$', r'## \1', cleaned_summary, flags=re.MULTILINE)
+
+        # Ensure headers use ## not ###
+        cleaned_summary = cleaned_summary.replace("### ", "## ")
 
         f.write(cleaned_summary)
 
     return exec_summary, bullet_summary, participants
-
 
 def markdown_to_html(title, date, exec_summary, bullet_summary, participants, output_dir="."):
     """Convert markdown content to HTML using Jinja2"""
