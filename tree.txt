@@ -1,0 +1,57 @@
+.
+|-- audio_samples
+|   |-- 20250305105250.WAV
+|   |-- audio_test.m4a
+|   |-- SCE-4-1-25.m4a
+|   `-- test_short_call.WAV
+|-- md_to_pdf.py
+|-- NOTE -TO-CLAUDE.MD
+|-- ollama-models
+|   |-- qwen3-summarizer-14b
+|   |   `-- Modelfile
+|   `-- qwen3-summarizer-30b
+|       `-- Modelfile
+|-- output
+|   |-- 14b
+|   |   |-- IN-8 Deployment Strategy Discussion (1).html
+|   |   |-- IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.md
+|   |   |-- IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.pdf
+|   |   |-- IN-8 Integration Standup--qwen3-summarizer-14b.md
+|   |   |-- IN-8 Integration Standup--qwen3-summarizer-14b.pdf
+|   |   |-- IN8 -User Story Refinement 0516.html
+|   |   |-- IN8 -User Story Refinement 0516--qwen3-summarizer-14b.md
+|   |   |-- IN8 -User Story Refinement 0516--qwen3-summarizer-14b.pdf
+|   |   |-- template.css
+|   |   |-- test_short_call_diarized_transcript--qwen3-summarizer-14b.md
+|   |   `-- test_short_call_diarized_transcript--qwen3-summarizer-14b.pdf
+|   |-- 30b
+|   |   |-- IN-8 Integration Standup--qwen3-summarizer-30b.md
+|   |   `-- IN-8 Integration Standup--qwen3-summarizer-30b.pdf
+|   |-- template.css
+|   |-- test_short_call_diarization.json
+|   |-- test_short_call_diarized_transcript.txt
+|   `-- test_short_call_transcription.txt
+|-- __pycache__
+|   |-- md_to_pdf.cpython-310.pyc
+|   |-- publish.cpython-310.pyc
+|   |-- summarize.cpython-310.pyc
+|   |-- transcribe.cpython-310.pyc
+|   `-- transcription.cpython-310.pyc
+|-- README.MD
+|-- requirements-new.txt
+|-- requirements.txt
+|-- summarize.py
+|-- templates
+|   |-- meeting_template.html
+|   |-- meeting_template.tex
+|   `-- template.css
+|-- transcribe.py
+|-- transcript_samples
+|   |-- IN-8 Deployment Strategy Discussion (1).docx
+|   |-- IN-8 Integration Standup.docx
+|   |-- IN-8 Project_ SAP Integration User Stories 20250515.docx
+|   |-- IN-8 Project_ SAP Integration User Stories.docx
+|   `-- IN8 -User Story Refinement 0516.docx
+`-- tree.txt
+
+10 directories, 44 files
