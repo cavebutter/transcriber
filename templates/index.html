@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}RealRecap - AI-Powered Meeting Transcription & Summarization{% endblock %}
+
+{% block content %}
+{% if current_user.is_authenticated %}
+    <!-- Redirect to dashboard for logged-in users -->
+    <script>window.location.href = "{{ url_for('main.dashboard') }}";</script>
+{% else %}
+    <!-- Hero Section -->
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-6">
+            <h1 class="display-4 fw-bold text-navy mb-4">
+                Transform Your Meetings into Actionable Insights
+            </h1>
+            <p class="lead mb-4">
+                RealRecap uses cutting-edge AI to transcribe, analyze, and summarize your meetings. 
+                Get speaker identification, key topics, and professional reports in minutes.
+            </p>
+            <div class="d-flex gap-3">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-rocket-takeoff me-2"></i>Get Started Free
+                </a>
+                <a href="#features" class="btn btn-outline-primary btn-lg">
+                    <i class="bi bi-info-circle me-2"></i>Learn More
+                </a>
+            </div>
+        </div>
+        <div class="col-lg-6 text-center">
+            <div class="hero-graphic p-4">
+                <i class="bi bi-mic-fill text-primary" style="font-size: 8rem; opacity: 0.1;"></i>
+                <div class="position-relative">
+                    <i class="bi bi-waveform text-primary" style="font-size: 4rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <section id="features" class="mb-5">
+        <div class="text-center mb-5">
+            <h2 class="h1 fw-bold text-navy">Powerful Features</h2>
+            <p class="lead text-muted">Everything you need to make meetings productive</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-mic-fill text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h4 class="fw-bold">AI Transcription</h4>
+                        <p class="text-muted">
+                            High-accuracy speech-to-text using Whisper AI. 
+                            Supports multiple audio formats and languages.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-people-fill text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h4 class="fw-bold">Speaker Identification</h4>
+                        <p class="text-muted">
+                            Automatically identify who said what with advanced 
+                            speaker diarization technology.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="bi bi-file-text-fill text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                        <h4 class="fw-bold">Smart Summaries</h4>
+                        <p class="text-muted">
+                            Generate executive summaries, action items, and 
+                            key discussion points automatically.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="mb-5">
+        <div class="text-center mb-5">
+            <h2 class="h1 fw-bold text-navy">How It Works</h2>
+            <p class="lead text-muted">Simple, fast, and reliable</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-3 text-center">
+                <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <span class="fw-bold">1</span>
+                </div>
+                <h5 class="fw-bold">Upload Audio</h5>
+                <p class="text-muted">Upload your meeting recording or existing transcript</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <span class="fw-bold">2</span>
+                </div>
+                <h5 class="fw-bold">AI Processing</h5>
+                <p class="text-muted">Our AI transcribes, identifies speakers, and analyzes content</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <span class="fw-bold">3</span>
+                </div>
+                <h5 class="fw-bold">Generate Summary</h5>
+                <p class="text-muted">Get comprehensive summaries with key points and action items</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <span class="fw-bold">4</span>
+                </div>
+                <h5 class="fw-bold">Download Results</h5>
+                <p class="text-muted">Get professional PDF reports and transcripts</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="bg-light rounded-3 p-5 text-center">
+        <h2 class="fw-bold text-navy mb-3">Ready to Transform Your Meetings?</h2>
+        <p class="lead text-muted mb-4">
+            Join thousands of professionals who use RealRecap to make their meetings more productive.
+        </p>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-rocket-takeoff me-2"></i>Start Free Today
+        </a>
+    </section>
+{% endif %}
+{% endblock %}

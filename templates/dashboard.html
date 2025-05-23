@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - RealRecap{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h2 fw-bold text-navy">
+            <i class="bi bi-speedometer2 me-3"></i>Dashboard
+        </h1>
+        <p class="text-muted">Welcome back, {{ current_user.email }}</p>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-file-earmark-music text-primary mb-3" style="font-size: 3rem;"></i>
+                <h5 class="fw-bold">Process Audio Recording</h5>
+                <p class="text-muted mb-3">Upload an audio file for transcription and summarization</p>
+                <a href="{{ url_for('main.upload_audio') }}" class="btn btn-primary">
+                    <i class="bi bi-upload me-2"></i>Upload Audio
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-file-earmark-text text-primary mb-3" style="font-size: 3rem;"></i>
+                <h5 class="fw-bold">Summarize Transcript</h5>
+                <p class="text-muted mb-3">Upload an existing transcript for AI summarization</p>
+                <a href="{{ url_for('main.upload_transcript') }}" class="btn btn-primary">
+                    <i class="bi bi-upload me-2"></i>Upload Transcript
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Jobs -->
+<div class="row">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-bold text-navy">Recent Jobs</h3>
+            <button class="btn btn-outline-primary btn-sm" onclick="refreshJobs()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            </button>
+        </div>
+        
+        {% if jobs %}
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Job #</th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in jobs %}
+                            <tr class="job-row" data-job-id="{{ job.id }}">
+                                <td class="fw-bold text-primary">#{{ job.id }}</td>
+                                <td>
+                                    <div class="fw-medium">{{ job.title or 'Untitled' }}</div>
+                                    <small class="text-muted">{{ job.original_filename }}</small>
+                                </td>
+                                <td>
+                                    {% if job.job_type.value == 'audio_processing' %}
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-mic-fill me-1"></i>Audio
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-file-text me-1"></i>Transcript
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="status-container">
+                                        {% if job.status.value == 'pending' %}
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-clock me-1"></i>Pending
+                                            </span>
+                                        {% elif job.status.value == 'processing' %}
+                                            <span class="badge bg-primary">
+                                                <i class="bi bi-gear-fill me-1"></i>Processing
+                                            </span>
+                                            <div class="progress mt-2" style="height: 6px;">
+                                                <div class="progress-bar" role="progressbar" style="width: {{ job.progress_percent }}%"></div>
+                                            </div>
+                                        {% elif job.status.value == 'completed' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>Completed
+                                            </span>
+                                        {% elif job.status.value == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle me-1"></i>Failed
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ job.created_at.strftime('%m/%d %H:%M') }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('main.job_status', job_id=job.id) }}" 
+                                           class="btn btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if job.can_download %}
+                                            <button class="btn btn-outline-success" onclick="showDownloads({{ job.id }})">
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                        {% endif %}
+                                        {% if job.status.value in ['pending', 'processing'] %}
+                                            <button class="btn btn-outline-warning" onclick="cancelJob({{ job.id }})">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        {% endif %}
+                                        <form method="POST" action="{{ url_for('main.delete_job', job_id=job.id) }}" 
+                                              class="d-inline" onsubmit="return confirm('Are you sure you want to delete this job?')">
+                                            <button type="submit" class="btn btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-inbox text-muted mb-3" style="font-size: 4rem;"></i>
+                    <h5 class="text-muted">No jobs yet</h5>
+                    <p class="text-muted">Upload your first audio file or transcript to get started!</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <a href="{{ url_for('main.upload_audio') }}" class="btn btn-primary">
+                            <i class="bi bi-mic-fill me-2"></i>Upload Audio
+                        </a>
+                        <a href="{{ url_for('main.upload_transcript') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-file-text me-2"></i>Upload Transcript
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Download Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="downloadModalBody">
+                <!-- Files will be loaded here via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-refresh job statuses
+const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
+let refreshInterval;
+
+function startAutoRefresh() {
+    refreshInterval = setInterval(refreshJobs, AUTO_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+}
+
+function refreshJobs() {
+    // Get all job rows
+    const jobRows = document.querySelectorAll('.job-row');
+    
+    jobRows.forEach(row => {
+        const jobId = row.dataset.jobId;
+        
+        fetch(`/api/job/${jobId}/status`)
+            .then(response => response.json())
+            .then(data => {
+                updateJobRow(row, data);
+            })
+            .catch(error => {
+                console.error('Error fetching job status:', error);
+            });
+    });
+}
+
+function updateJobRow(row, jobData) {
+    const statusContainer = row.querySelector('.status-container');
+    let statusHTML = '';
+    
+    switch(jobData.status) {
+        case 'pending':
+            statusHTML = '<span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pending</span>';
+            break;
+        case 'processing':
+            statusHTML = `
+                <span class="badge bg-primary"><i class="bi bi-gear-fill me-1"></i>Processing</span>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: ${jobData.progress_percent}%"></div>
+                </div>
+            `;
+            break;
+        case 'completed':
+            statusHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Completed</span>';
+            break;
+        case 'failed':
+            statusHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Failed</span>';
+            break;
+    }
+    
+    statusContainer.innerHTML = statusHTML;
+    
+    // If job completed, refresh the page to show download buttons
+    if (jobData.status === 'completed' || jobData.status === 'failed') {
+        setTimeout(() => {
+            location.reload();
+        }, 2000);
+    }
+}
+
+function showDownloads(jobId) {
+    fetch(`/api/job/${jobId}/status`)
+        .then(response => response.json())
+        .then(data => {
+            const modalBody = document.getElementById('downloadModalBody');
+            
+            if (data.output_files && data.output_files.length > 0) {
+                let html = '<div class="list-group">';
+                
+                data.output_files.forEach(file => {
+                    html += `
+                        <a href="/download/${jobId}/${file.filename}" 
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <strong>${file.filename}</strong>
+                                <br>
+                                <small class="text-muted">${file.size_human}</small>
+                            </div>
+                            <i class="bi bi-download"></i>
+                        </a>
+                    `;
+                });
+                
+                html += '</div>';
+                modalBody.innerHTML = html;
+            } else {
+                modalBody.innerHTML = '<p class="text-muted">No files available for download.</p>';
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('downloadModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error loading download files:', error);
+        });
+}
+
+function cancelJob(jobId) {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+    
+    fetch(`/api/job/${jobId}/cancel`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            refreshJobs();
+        }
+    })
+    .catch(error => {
+        console.error('Error cancelling job:', error);
+    });
+}
+
+// Start auto-refresh when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    startAutoRefresh();
+});
+
+// Stop auto-refresh when page is hidden
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        stopAutoRefresh();
+    } else {
+        startAutoRefresh();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Transcript - RealRecap{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow">
+            <div class="card-header bg-secondary text-white">
+                <h3 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-text me-2"></i>Upload Existing Transcript
+                </h3>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-4">
+                    Already have a transcript? Upload it here for AI-powered summarization and analysis.
+                    Supports plain text files and Microsoft Teams meeting transcripts.
+                </p>
+
+                <form method="POST" enctype="multipart/form-data" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- File Upload -->
+                    <div class="mb-4">
+                        {{ form.transcript_file.label(class="form-label fw-bold") }}
+                        <div class="upload-area border-2 border-dashed rounded-3 p-4 text-center" id="upload-area">
+                            {{ form.transcript_file(class="form-control", id="transcriptFile", style="display: none;") }}
+                            <div class="upload-placeholder">
+                                <i class="bi bi-file-earmark-text text-secondary mb-3" style="font-size: 3rem;"></i>
+                                <h5>Click to select or drag and drop</h5>
+                                <p class="text-muted mb-0">Supported formats: TXT, DOCX</p>
+                                <p class="text-muted small">Maximum file size: 50MB</p>
+                            </div>
+                            <div class="upload-info" style="display: none;">
+                                <i class="bi bi-file-earmark-text text-success mb-2" style="font-size: 2rem;"></i>
+                                <div class="filename fw-bold"></div>
+                                <div class="filesize text-muted"></div>
+                            </div>
+                        </div>
+                        {% if form.transcript_file.errors %}
+                            <div class="text-danger mt-2">
+                                {% for error in form.transcript_file.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Meeting Title -->
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label fw-bold") }}
+                        {{ form.title(class="form-control", placeholder="e.g., Project Review Meeting - March 15") }}
+                        <div class="form-text">Optional: Give your meeting a descriptive title</div>
+                    </div>
+
+                    <!-- Processing Options -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.summarizer_model.label(class="form-label fw-bold") }}
+                            {{ form.summarizer_model(class="form-select") }}
+                            <div class="form-text">30B model provides more detailed summaries</div>
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.output_format.label(class="form-label fw-bold") }}
+                            {{ form.output_format(class="form-select") }}
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-secondary btn-lg" id="submit-btn" disabled>
+                            <i class="bi bi-magic me-2"></i>Generate Summary
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- File Format Information -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-primary">
+                            <i class="bi bi-file-earmark-text me-2"></i>Plain Text (.txt)
+                        </h6>
+                        <p class="text-muted small mb-0">
+                            Simple text files with speaker labels like "John: Hello everyone..."
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-primary">
+                            <i class="bi bi-file-earmark-word me-2"></i>Teams Transcript (.docx)
+                        </h6>
+                        <p class="text-muted small mb-0">
+                            Microsoft Teams meeting transcripts with automatic participant extraction
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing Time Estimate -->
+        <div class="alert alert-info mt-4">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Processing Time:</strong> Typically 2-5 minutes for transcript summarization. 
+            The process is much faster than audio transcription since we skip the speech-to-text step.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('transcriptFile');
+    const placeholder = uploadArea.querySelector('.upload-placeholder');
+    const uploadInfo = uploadArea.querySelector('.upload-info');
+    const submitBtn = document.getElementById('submit-btn');
+
+    // Handle file drag and drop
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('border-secondary', 'bg-light');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('border-secondary', 'bg-light');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-secondary', 'bg-light');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileDisplay(files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            updateFileDisplay(e.target.files[0]);
+        }
+    });
+
+    function updateFileDisplay(file) {
+        const filename = uploadInfo.querySelector('.filename');
+        const filesize = uploadInfo.querySelector('.filesize');
+        
+        filename.textContent = file.name;
+        filesize.textContent = formatFileSize(file.size);
+        
+        placeholder.style.display = 'none';
+        uploadInfo.style.display = 'block';
+        
+        // Enable submit button
+        submitBtn.disabled = false;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Form submission handling
+    document.querySelector('form').addEventListener('submit', function() {
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Processing...';
+        submitBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}

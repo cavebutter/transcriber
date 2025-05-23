@@ -1,9 +1,19 @@
 .
+|-- app
+|   |-- api
+|   |-- auth
+|   |-- main
+|   `-- utils
+|       |-- __init__.py
+|       `-- summarization.py
 |-- audio_samples
 |   |-- 20250305105250.WAV
 |   |-- audio_test.m4a
 |   |-- SCE-4-1-25.m4a
 |   `-- test_short_call.WAV
+|-- cli.py
+|-- deploy.sh
+|-- logs
 |-- md_to_pdf.py
 |-- NOTE -TO-CLAUDE.MD
 |-- ollama-models
@@ -40,8 +50,27 @@
 |-- README.MD
 |-- requirements-new.txt
 |-- requirements.txt
+|-- requirements-webapp.txt
+|-- run.py
+|-- setup.py
+|-- static
+|   |-- css
+|   |   `-- custom.css
+|   |-- images
+|   `-- js
+|       `-- app.js
 |-- summarize.py
 |-- templates
+|   |-- auth
+|   |   |-- login.html
+|   |   `-- register.html
+|   |-- base.html
+|   |-- dashboard.html
+|   |-- index.html
+|   |-- job_status.html
+|   |-- upload_audio.html
+|   `-- upload_transcript.html
+|-- templates_orig
 |   |-- meeting_template.html
 |   |-- meeting_template.tex
 |   `-- template.css
@@ -52,6 +81,8 @@
 |   |-- IN-8 Project_ SAP Integration User Stories 20250515.docx
 |   |-- IN-8 Project_ SAP Integration User Stories.docx
 |   `-- IN8 -User Story Refinement 0516.docx
-`-- tree.txt
+|-- tree.txt
+`-- uploads
+    `-- temp
 
-10 directories, 44 files
+24 directories, 61 files
