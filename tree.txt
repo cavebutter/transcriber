@@ -1,88 +1,103 @@
 .
-|-- app
-|   |-- api
-|   |-- auth
-|   |-- main
-|   `-- utils
-|       |-- __init__.py
-|       `-- summarization.py
-|-- audio_samples
-|   |-- 20250305105250.WAV
-|   |-- audio_test.m4a
-|   |-- SCE-4-1-25.m4a
-|   `-- test_short_call.WAV
-|-- cli.py
-|-- deploy.sh
-|-- logs
-|-- md_to_pdf.py
-|-- NOTE -TO-CLAUDE.MD
-|-- ollama-models
-|   |-- qwen3-summarizer-14b
-|   |   `-- Modelfile
-|   `-- qwen3-summarizer-30b
-|       `-- Modelfile
-|-- output
-|   |-- 14b
-|   |   |-- IN-8 Deployment Strategy Discussion (1).html
-|   |   |-- IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.md
-|   |   |-- IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.pdf
-|   |   |-- IN-8 Integration Standup--qwen3-summarizer-14b.md
-|   |   |-- IN-8 Integration Standup--qwen3-summarizer-14b.pdf
-|   |   |-- IN8 -User Story Refinement 0516.html
-|   |   |-- IN8 -User Story Refinement 0516--qwen3-summarizer-14b.md
-|   |   |-- IN8 -User Story Refinement 0516--qwen3-summarizer-14b.pdf
-|   |   |-- template.css
-|   |   |-- test_short_call_diarized_transcript--qwen3-summarizer-14b.md
-|   |   `-- test_short_call_diarized_transcript--qwen3-summarizer-14b.pdf
-|   |-- 30b
-|   |   |-- IN-8 Integration Standup--qwen3-summarizer-30b.md
-|   |   `-- IN-8 Integration Standup--qwen3-summarizer-30b.pdf
-|   |-- template.css
-|   |-- test_short_call_diarization.json
-|   |-- test_short_call_diarized_transcript.txt
-|   `-- test_short_call_transcription.txt
-|-- __pycache__
-|   |-- md_to_pdf.cpython-310.pyc
-|   |-- publish.cpython-310.pyc
-|   |-- summarize.cpython-310.pyc
-|   |-- transcribe.cpython-310.pyc
-|   `-- transcription.cpython-310.pyc
-|-- README.MD
-|-- requirements-new.txt
-|-- requirements.txt
-|-- requirements-webapp.txt
-|-- run.py
-|-- setup.py
-|-- static
-|   |-- css
-|   |   `-- custom.css
-|   |-- images
-|   `-- js
-|       `-- app.js
-|-- summarize.py
-|-- templates
-|   |-- auth
-|   |   |-- login.html
-|   |   `-- register.html
-|   |-- base.html
-|   |-- dashboard.html
-|   |-- index.html
-|   |-- job_status.html
-|   |-- upload_audio.html
-|   `-- upload_transcript.html
-|-- templates_orig
-|   |-- meeting_template.html
-|   |-- meeting_template.tex
-|   `-- template.css
-|-- transcribe.py
-|-- transcript_samples
-|   |-- IN-8 Deployment Strategy Discussion (1).docx
-|   |-- IN-8 Integration Standup.docx
-|   |-- IN-8 Project_ SAP Integration User Stories 20250515.docx
-|   |-- IN-8 Project_ SAP Integration User Stories.docx
-|   `-- IN8 -User Story Refinement 0516.docx
-|-- tree.txt
-`-- uploads
-    `-- temp
+├── app
+│   ├── api
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── auth
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── forms.py
+│   ├── __init__.py
+│   ├── main
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── models.py
+│   ├── tasks.py
+│   └── utils
+│       ├── __init__.py
+│       ├── pdf_generator.py
+│       ├── summarization.py
+│       └── transcription.py
+├── audio_samples
+│   ├── 20250305105250.WAV
+│   ├── audio_test.m4a
+│   ├── SCE-4-1-25.m4a
+│   └── test_short_call.WAV
+├── cli.py
+├── config.py
+├── deploy.sh
+├── docker-compose.yml
+├── Dockerfile
+├── logs
+├── md_to_pdf.py
+├── NOTE -TO-CLAUDE.MD
+├── ollama-models
+│   ├── qwen3-summarizer-14b
+│   │   └── Modelfile
+│   └── qwen3-summarizer-30b
+│       └── Modelfile
+├── output
+│   ├── 14b
+│   │   ├── IN-8 Deployment Strategy Discussion (1).html
+│   │   ├── IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.md
+│   │   ├── IN-8 Deployment Strategy Discussion (1)--qwen3-summarizer-14b.pdf
+│   │   ├── IN-8 Integration Standup--qwen3-summarizer-14b.md
+│   │   ├── IN-8 Integration Standup--qwen3-summarizer-14b.pdf
+│   │   ├── IN8 -User Story Refinement 0516.html
+│   │   ├── IN8 -User Story Refinement 0516--qwen3-summarizer-14b.md
+│   │   ├── IN8 -User Story Refinement 0516--qwen3-summarizer-14b.pdf
+│   │   ├── template.css
+│   │   ├── test_short_call_diarized_transcript--qwen3-summarizer-14b.md
+│   │   └── test_short_call_diarized_transcript--qwen3-summarizer-14b.pdf
+│   ├── 30b
+│   │   ├── IN-8 Integration Standup--qwen3-summarizer-30b.md
+│   │   └── IN-8 Integration Standup--qwen3-summarizer-30b.pdf
+│   ├── template.css
+│   ├── test_short_call_diarization.json
+│   ├── test_short_call_diarized_transcript.txt
+│   └── test_short_call_transcription.txt
+├── __pycache__
+│   ├── md_to_pdf.cpython-310.pyc
+│   ├── publish.cpython-310.pyc
+│   ├── summarize.cpython-310.pyc
+│   ├── transcribe.cpython-310.pyc
+│   └── transcription.cpython-310.pyc
+├── README.MD
+├── requirements-new.txt
+├── requirements.txt
+├── requirements-webapp.txt
+├── run.py
+├── setup.py
+├── static
+│   ├── css
+│   │   └── custom.css
+│   ├── images
+│   └── js
+│       └── app.js
+├── summarize.py
+├── templates
+│   ├── auth
+│   │   ├── login.html
+│   │   └── register.html
+│   ├── base.html
+│   ├── dashboard.html
+│   ├── index.html
+│   ├── job_status.html
+│   ├── upload_audio.html
+│   └── upload_transcript.html
+├── templates_orig
+│   ├── meeting_template.html
+│   ├── meeting_template.tex
+│   └── template.css
+├── transcribe.py
+├── transcript_samples
+│   ├── IN-8 Deployment Strategy Discussion (1).docx
+│   ├── IN-8 Integration Standup.docx
+│   ├── IN-8 Project_ SAP Integration User Stories 20250515.docx
+│   ├── IN-8 Project_ SAP Integration User Stories.docx
+│   └── IN8 -User Story Refinement 0516.docx
+├── tree.txt
+└── uploads
+    └── temp
 
-24 directories, 61 files
+24 directories, 76 files

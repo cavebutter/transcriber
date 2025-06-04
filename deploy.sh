@@ -1,5 +1,5 @@
 #!/bin/bash
-# RealRecap Docker Deployment Script
+# RealRecap Docker Deployment Script - Updated for GPU Scheduling
 
 set -e  # Exit on any error
 
@@ -60,17 +60,27 @@ check_docker_compose() {
     log_success "Docker Compose is available"
 }
 
-# Check for NVIDIA Docker (for GPU support)
+# Check for NVIDIA Docker (REQUIRED for this app)
 check_nvidia_docker() {
-    log_info "Checking for NVIDIA Docker support..."
+    log_info "Checking for NVIDIA Docker support (REQUIRED)..."
 
-    if command -v nvidia-smi &> /dev/null && docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi &> /dev/null; then
-        log_success "NVIDIA Docker support detected"
-        return 0
-    else
-        log_warning "NVIDIA Docker support not detected. GPU acceleration will not be available."
+    if ! command -v nvidia-smi &> /dev/null; then
+        log_error "nvidia-smi not found. Please install NVIDIA drivers."
         return 1
     fi
+
+    # Check if nvidia-container-runtime is installed
+    if ! docker run --rm --gpus all nvidia/cuda:12.1-runtime-ubuntu22.04 nvidia-smi &> /dev/null; then
+        log_error "NVIDIA Docker support not available. Please install nvidia-container-toolkit."
+        echo "  Installation guide: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+        return 1
+    fi
+
+    # Get GPU info
+    GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits | head -1)
+    log_success "NVIDIA Docker support detected"
+    log_info "GPU: $GPU_INFO"
+    return 0
 }
 
 # Set up environment file
@@ -93,13 +103,27 @@ setup_environment() {
         log_success "Environment file (.env) already exists"
     fi
 
-    # Check for required environment variables
-    if ! grep -q "HF_TOKEN=" .env || grep -q "HF_TOKEN=your_huggingface_token_here" .env; then
+    # Validate required environment variables
+    source .env
+
+    if [[ -z "$HF_TOKEN" || "$HF_TOKEN" == "your_huggingface_token_here" ]]; then
         log_warning "HF_TOKEN not set in .env file. Speaker diarization will not work."
+        log_info "You can get a token from: https://huggingface.co/settings/tokens"
+        log_info "Make sure to accept terms at: https://huggingface.co/pyannote/speaker-diarization-3.1"
     fi
 
-    if ! grep -q "SECRET_KEY=" .env || grep -q "SECRET_KEY=.*change.*" .env; then
+    if [[ -z "$SECRET_KEY" || "$SECRET_KEY" == *"change"* ]]; then
         log_warning "SECRET_KEY should be changed for production deployment"
+        # Generate a random secret key
+        RANDOM_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+        log_info "Suggested SECRET_KEY: $RANDOM_KEY"
+    fi
+
+    # Validate GPU_AVAILABLE setting
+    if [[ "${GPU_AVAILABLE:-true}" == "true" ]]; then
+        log_info "GPU processing enabled in configuration"
+    else
+        log_warning "GPU processing disabled in configuration"
     fi
 }
 
@@ -107,11 +131,12 @@ setup_environment() {
 create_directories() {
     log_info "Creating necessary directories..."
 
-    mkdir -p uploads
-    mkdir -p logs
-
-    # Set permissions
+    mkdir -p uploads logs
     chmod 755 uploads logs
+
+    # Create subdirectories for better organization
+    mkdir -p uploads/temp
+    mkdir -p logs/celery
 
     log_success "Directories created"
 }
@@ -139,7 +164,7 @@ import_ollama_models() {
 
     # Wait for Ollama to be ready
     log_info "Waiting for Ollama to start..."
-    max_attempts=30
+    max_attempts=60  # Increased timeout for model loading
     attempt=0
 
     while [[ $attempt -lt $max_attempts ]]; do
@@ -148,30 +173,33 @@ import_ollama_models() {
         fi
         sleep 2
         ((attempt++))
+
+        if [[ $((attempt % 15)) -eq 0 ]]; then
+            log_info "Still waiting for Ollama... (${attempt}s elapsed)"
+        fi
     done
 
     if [[ $attempt -eq $max_attempts ]]; then
-        log_error "Ollama failed to start"
+        log_error "Ollama failed to start within timeout"
         return 1
     fi
 
     log_success "Ollama is ready"
 
-    # Import models
-    for model_dir in ollama-models/*/; do
-        if [[ -d "$model_dir" && -f "$model_dir/Modelfile" ]]; then
-            model_name=$(basename "$model_dir")
-            log_info "Importing model: $model_name"
+    # Import models using the CLI command
+    $DOCKER_COMPOSE_CMD exec webapp python run.py import-ollama-models --timeout 600
 
-            $DOCKER_COMPOSE_CMD exec ollama sh -c "cd /tmp/models/$model_name && ollama create $model_name -f Modelfile"
+    return $?
+}
 
-            if [[ $? -eq 0 ]]; then
-                log_success "Successfully imported $model_name"
-            else
-                log_error "Failed to import $model_name"
-            fi
-        fi
-    done
+# Validate system requirements
+validate_system() {
+    log_info "Validating system requirements..."
+
+    # Use the webapp container to run system validation
+    $DOCKER_COMPOSE_CMD exec webapp python run.py validate-system
+
+    return $?
 }
 
 # Start all services
@@ -188,7 +216,7 @@ wait_for_services() {
     log_info "Waiting for services to be ready..."
 
     # Wait for webapp
-    max_attempts=60
+    max_attempts=120  # Increased for GPU service startup
     attempt=0
 
     while [[ $attempt -lt $max_attempts ]]; do
@@ -199,13 +227,14 @@ wait_for_services() {
         sleep 2
         ((attempt++))
 
-        if [[ $((attempt % 10)) -eq 0 ]]; then
-            log_info "Still waiting for webapp to start... (${attempt}s)"
+        if [[ $((attempt % 15)) -eq 0 ]]; then
+            log_info "Still waiting for webapp to start... (${attempt}s elapsed)"
         fi
     done
 
     if [[ $attempt -eq $max_attempts ]]; then
         log_error "Webapp failed to start within timeout"
+        log_info "Check logs with: $DOCKER_COMPOSE_CMD logs webapp"
         return 1
     fi
 }
@@ -219,25 +248,45 @@ show_status() {
     log_info "Application URLs:"
     echo "  🌐 Webapp: http://localhost:5000"
     echo "  🤖 Ollama: http://localhost:11434"
-    echo "  📊 Redis: localhost:6379"
+
+    # Only show Redis if exposed (development mode)
+    if docker port realrecap_redis 6379 &> /dev/null; then
+        echo "  📊 Redis: localhost:6379"
+    fi
 
     echo ""
     log_info "Useful commands:"
     echo "  📋 View logs: $DOCKER_COMPOSE_CMD logs -f webapp"
+    echo "  📋 View worker logs: $DOCKER_COMPOSE_CMD logs -f celery_worker"
     echo "  🔄 Restart: $DOCKER_COMPOSE_CMD restart"
     echo "  🛑 Stop: $DOCKER_COMPOSE_CMD down"
     echo "  🗑️  Clean up: $DOCKER_COMPOSE_CMD down -v"
+    echo "  🔍 System check: $DOCKER_COMPOSE_CMD exec webapp python run.py validate-system"
+
+    # Show GPU usage
+    echo ""
+    log_info "GPU Status:"
+    if command -v nvidia-smi &> /dev/null; then
+        nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total --format=csv,noheader
+    else
+        echo "  nvidia-smi not available"
+    fi
 }
 
 # Main deployment function
 main() {
-    echo "🎯 RealRecap Docker Deployment"
-    echo "================================"
+    echo "🎯 RealRecap Docker Deployment (GPU Optimized)"
+    echo "================================================"
 
     # Pre-flight checks
     check_docker
     check_docker_compose
-    GPU_SUPPORT=$(check_nvidia_docker && echo "true" || echo "false")
+
+    # GPU check is REQUIRED for this application
+    if ! check_nvidia_docker; then
+        log_error "GPU support is required for RealRecap. Deployment failed."
+        exit 1
+    fi
 
     # Setup
     setup_environment
@@ -255,15 +304,22 @@ main() {
         log_success "Ollama models imported successfully"
     else
         log_warning "Some Ollama models failed to import"
+        log_info "You can retry with: $DOCKER_COMPOSE_CMD exec webapp python run.py import-ollama-models"
     fi
 
     # Start all services
     start_services
 
-    # Wait for services
+    # Wait for services and validate
     if wait_for_services; then
-        log_success "Deployment completed successfully!"
-        show_status
+        if validate_system; then
+            log_success "Deployment completed successfully!"
+            show_status
+        else
+            log_warning "Deployment completed but system validation failed"
+            log_info "Check the issues above and retry validation"
+            show_status
+        fi
     else
         log_error "Deployment failed"
         log_info "Check logs with: $DOCKER_COMPOSE_CMD logs"
@@ -295,10 +351,26 @@ case "${1:-}" in
         show_status
         ;;
     "logs")
-        $DOCKER_COMPOSE_CMD logs -f webapp
+        if [[ -n "${2:-}" ]]; then
+            $DOCKER_COMPOSE_CMD logs -f "$2"
+        else
+            $DOCKER_COMPOSE_CMD logs -f webapp celery_worker
+        fi
         ;;
     "status")
         show_status
+        ;;
+    "validate")
+        log_info "Running system validation..."
+        $DOCKER_COMPOSE_CMD exec webapp python run.py validate-system
+        ;;
+    "gpu")
+        log_info "GPU Status:"
+        if command -v nvidia-smi &> /dev/null; then
+            nvidia-smi
+        else
+            log_error "nvidia-smi not available"
+        fi
         ;;
     "clean")
         log_warning "This will remove all containers, networks, and volumes"
@@ -314,15 +386,17 @@ case "${1:-}" in
         main
         ;;
     *)
-        echo "Usage: $0 [start|stop|restart|logs|status|clean]"
+        echo "Usage: $0 [start|stop|restart|logs [service]|status|validate|gpu|clean]"
         echo ""
         echo "Commands:"
-        echo "  start   - Start existing deployment"
-        echo "  stop    - Stop all services"
-        echo "  restart - Restart all services"
-        echo "  logs    - Show webapp logs"
-        echo "  status  - Show service status"
-        echo "  clean   - Remove all containers and volumes"
+        echo "  start     - Start existing deployment"
+        echo "  stop      - Stop all services"
+        echo "  restart   - Restart all services"
+        echo "  logs      - Show logs (optionally specify service)"
+        echo "  status    - Show service status and GPU usage"
+        echo "  validate  - Run system validation checks"
+        echo "  gpu       - Show detailed GPU status"
+        echo "  clean     - Remove all containers and volumes"
         echo ""
         echo "Run without arguments for full deployment"
         exit 1

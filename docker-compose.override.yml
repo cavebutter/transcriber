@@ -1,0 +1,61 @@
+# docker-compose.override.yml
+# This file automatically overrides docker-compose.yml for development
+# Run with: docker-compose up
+
+version: '3.8'
+
+services:
+  webapp:
+    environment:
+      - FLASK_ENV=development
+      - CELERY_WORKER_LOGLEVEL=debug
+    volumes:
+      # Enable live code reloading in development
+      - .:/app
+      - /app/__pycache__  # Exclude pycache from volume mount
+    ports:
+      - "5000:5000"
+    # Less strict resource limits for development
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+
+  celery_worker:
+    environment:
+      - FLASK_ENV=development
+      - CELERY_WORKER_LOGLEVEL=debug
+    volumes:
+      # Enable live code reloading for celery worker too
+      - .:/app
+      - /app/__pycache__
+    # Give development more resources for faster processing
+    deploy:
+      resources:
+        limits:
+          memory: 48G    # Use more of that 64GB for development
+          cpus: '12.0'   # Use more of that i9
+
+  celery_beat:
+    environment:
+      - FLASK_ENV=development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+
+  ollama:
+    # Expose Ollama port for development debugging
+    ports:
+      - "11434:11434"
+    # More resources for development model loading
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+          cpus: '4.0'
+
+  redis:
+    # Expose Redis port for development debugging tools
+    ports:
+      - "6379:6379"

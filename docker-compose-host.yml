@@ -1,14 +1,15 @@
 version: '3.8'
 
 services:
-  # Redis for Celery broker/backend - INTERNAL ONLY
+  # Redis for Celery broker/backend - HOST NETWORKING
   redis:
     image: redis:7-alpine
     container_name: realrecap_redis
     restart: unless-stopped
+    network_mode: host
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --port 6379
     deploy:
       resources:
         limits:
@@ -18,25 +19,23 @@ services:
           memory: 256M
           cpus: '0.1'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    networks:
-      - realrecap_internal
 
-  # Ollama for LLM inference - CPU ONLY (GPU handled by Celery)
+  # Ollama for LLM inference - HOST NETWORKING + GPU
   ollama:
     image: ollama/ollama:latest
     container_name: realrecap_ollama
     restart: unless-stopped
-    ports:
-      - "11434:11434"
+    network_mode: host
     volumes:
       - ollama_models:/root/.ollama
       - ./ollama-models:/tmp/models  # Mount local models for import
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - CUDA_VISIBLE_DEVICES=0
     deploy:
       resources:
         limits:
@@ -45,22 +44,23 @@ services:
         reservations:
           memory: 2G
           cpus: '0.5'
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - realrecap_internal
 
-  # Main Flask webapp - NO GPU ACCESS
+  # Main Flask webapp - HOST NETWORKING
   webapp:
     build: .
     container_name: realrecap_webapp
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    network_mode: host
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
@@ -69,9 +69,9 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
       - DATABASE_URL=sqlite:///realrecap.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - OLLAMA_HOST=http://ollama:11434
+      - CELERY_BROKER_URL=redis://localhost:6379/0
+      - CELERY_RESULT_BACKEND=redis://localhost:6379/0
+      - OLLAMA_HOST=http://localhost:11434
       - HF_TOKEN=${HF_TOKEN}
       - UPLOAD_FOLDER=/app/uploads
       - GPU_AVAILABLE=true
@@ -95,15 +95,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - realrecap_internal
 
-  # Celery worker for background tasks - GETS THE GPU
+  # Celery worker for background tasks - HOST NETWORKING + GPU
   celery_worker:
     build: .
     container_name: realrecap_celery
     restart: unless-stopped
-    command: celery -A run.celery worker --loglevel=info --concurrency=1 --queues=gpu_queue,default
+    network_mode: host
+    command: ["celery", "-A", "run.celery", "worker", "--loglevel=info", "--concurrency=1", "--queues=gpu_queue,default"]
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
@@ -112,9 +111,9 @@ services:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
       - DATABASE_URL=sqlite:///realrecap.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - OLLAMA_HOST=http://ollama:11434
+      - CELERY_BROKER_URL=redis://localhost:6379/0
+      - CELERY_RESULT_BACKEND=redis://localhost:6379/0
+      - OLLAMA_HOST=http://localhost:11434
       - HF_TOKEN=${HF_TOKEN}
       - UPLOAD_FOLDER=/app/uploads
       - CUDA_VISIBLE_DEVICES=0
@@ -135,23 +134,22 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    networks:
-      - realrecap_internal
 
-  # Celery beat scheduler for periodic tasks - NO GPU NEEDED
+  # Celery beat scheduler for periodic tasks - HOST NETWORKING
   celery_beat:
     build: .
     container_name: realrecap_beat
     restart: unless-stopped
-    command: celery -A run.celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    network_mode: host
+    command: ["celery", "-A", "run.celery", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     volumes:
       - ./logs:/app/logs
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
       - DATABASE_URL=sqlite:///realrecap.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://localhost:6379/0
+      - CELERY_RESULT_BACKEND=redis://localhost:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -163,15 +161,9 @@ services:
         reservations:
           memory: 256M
           cpus: '0.1'
-    networks:
-      - realrecap_internal
 
 volumes:
   redis_data:
     driver: local
   ollama_models:
     driver: local
-
-networks:
-  realrecap_internal:
-    driver: bridge
