@@ -132,7 +132,8 @@ def health_check():
     try:
         # Check database connection
         from app import db
-        db.session.execute('SELECT 1')
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
 
         # Check Celery connection
         inspect = celery.control.inspect()

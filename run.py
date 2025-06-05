@@ -211,7 +211,6 @@ def create_admin_command():
     print(f"✅ Admin user {email} created successfully!")
 
 
-@app.cli.command("import-ollama-models")
 @click.option('--force', is_flag=True, help='Force reimport existing models')
 @click.option('--timeout', default=300, help='Timeout per model in seconds')
 def import_ollama_models(force, timeout):

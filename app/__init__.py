@@ -14,7 +14,7 @@ celery = Celery(__name__)
 
 
 def create_app(config_name=None):
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='../templates')
 
     # Load config
     if config_name is None:
