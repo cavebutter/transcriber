@@ -12,7 +12,7 @@ from logging.handlers import RotatingFileHandler
 # Load environment variables from .env file
 load_dotenv()
 
-from app import create_app, celery
+from app import create_app, celery, db
 from app.models import User, Job
 
 
@@ -74,7 +74,7 @@ def validate_external_services():
         print(f"❌ Redis connection failed: {e}")
         return False
 
-    # Check Ollama connection
+    # Check Ollama connection and models
     try:
         import requests
         ollama_host = os.environ.get('OLLAMA_HOST', 'http://localhost:11434')
@@ -82,7 +82,18 @@ def validate_external_services():
 
         if response.status_code == 200:
             models = response.json().get('models', [])
+            model_names = [model['name'] for model in models]
             print(f"✅ Ollama connection successful ({len(models)} models loaded)")
+            
+            # Check for required models
+            required_models = ['qwen3-summarizer:14b', 'qwen3-summarizer:30b']
+            missing_models = [model for model in required_models if model not in model_names]
+            
+            if missing_models:
+                print(f"⚠️  Missing required models: {', '.join(missing_models)}")
+                print("   These models will be created automatically during startup")
+            else:
+                print("✅ All required models are available")
         else:
             print(f"❌ Ollama returned status code {response.status_code}")
             return False
@@ -286,6 +297,49 @@ def import_ollama_models(force, timeout):
     print(f"📊 Import complete: {success_count}/{total_models} models imported successfully")
 
 
+@app.cli.command("init-db")
+def init_db_command():
+    """Initialize the database with tables."""
+    print("🗄️  Initializing database...")
+    
+    try:
+        # Create all tables
+        db.create_all()
+        print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"❌ Error creating database tables: {e}")
+        sys.exit(1)
+
+
+@app.cli.command("create-admin")
+@click.option('--email', prompt='Admin email', help='Administrator email address')
+@click.option('--password', prompt=True, hide_input=True, confirmation_prompt=True, help='Administrator password')
+def create_admin_command(email, password):
+    """Create an administrator user."""
+    print(f"👤 Creating admin user: {email}")
+    
+    try:
+        # Check if user already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            print(f"❌ User with email {email} already exists")
+            return
+        
+        # Create admin user
+        admin = User(email=email)
+        admin.set_password(password)
+        
+        db.session.add(admin)
+        db.session.commit()
+        
+        print(f"✅ Admin user created successfully: {email}")
+        
+    except Exception as e:
+        print(f"❌ Error creating admin user: {e}")
+        db.session.rollback()
+        sys.exit(1)
+
+
 @app.cli.command("validate-system")
 def validate_system_command():
     """Validate system requirements and external services."""
@@ -325,6 +379,16 @@ if __name__ == '__main__':
 
         if not validate_external_services():
             print("❌ Startup failed: External service validation failed")
+            sys.exit(1)
+
+        # Initialize database on startup
+        print("🗄️  Ensuring database is initialized...")
+        try:
+            with app.app_context():
+                db.create_all()
+            print("✅ Database initialization complete")
+        except Exception as e:
+            print(f"❌ Database initialization failed: {e}")
             sys.exit(1)
 
     print("✅ All startup checks passed!")

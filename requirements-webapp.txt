@@ -37,9 +37,11 @@ requests>=2.25.0
 # Flask and web framework
 flask==3.0.0
 flask-sqlalchemy==3.1.1
+flask-migrate==4.0.5
 flask-login==0.6.3
 flask-wtf==1.2.1
 wtforms==3.1.1
+email-validator==2.1.1
 
 # Background task processing
 celery==5.3.4
@@ -58,8 +60,9 @@ huggingface-hub>=0.15.0
 more-itertools>=8.0.0
 regex>=2022.0.0
 
-# Database drivers (optional for PostgreSQL in production)
-# psycopg2-binary==2.9.7
+# Database drivers for PostgreSQL
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
 
 # Development dependencies (optional)
 # pytest==7.4.0

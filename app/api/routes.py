@@ -139,12 +139,22 @@ def health_check():
         inspect = celery.control.inspect()
         active_tasks = inspect.active()
 
-        # Check Ollama connection
+        # Check Ollama connection and models
         import requests
         ollama_host = current_app.config.get('OLLAMA_HOST', 'http://localhost:11434')
+        ollama_status = "unreachable"
+        models_ready = False
+        
         try:
             response = requests.get(f"{ollama_host}/api/tags", timeout=5)
-            ollama_status = "ok" if response.status_code == 200 else "error"
+            if response.status_code == 200:
+                ollama_status = "ok"
+                models = response.json().get('models', [])
+                model_names = [model['name'] for model in models]
+                required_models = ['qwen3-summarizer:14b', 'qwen3-summarizer:30b']
+                models_ready = all(model in model_names for model in required_models)
+            else:
+                ollama_status = "error"
         except:
             ollama_status = "unreachable"
 
@@ -153,6 +163,7 @@ def health_check():
             'database': 'ok',
             'celery': 'ok' if active_tasks is not None else 'error',
             'ollama': ollama_status,
+            'models_ready': models_ready,
             'timestamp': current_app.config.get('STARTUP_TIME', 'unknown')
         })
 
@@ -161,6 +172,32 @@ def health_check():
         return jsonify({
             'status': 'unhealthy',
             'error': str(e)
+        }), 500
+
+
+@bp.route('/system/models')
+def models_status():
+    """Get detailed model status information."""
+    try:
+        from app.utils.model_manager import model_manager
+        
+        status = model_manager.get_model_status()
+        
+        return jsonify({
+            'ollama_healthy': status['ollama_healthy'],
+            'models_ready': status['all_models_ready'],
+            'required_models': status['models'],
+            'available_models': status['available_models'],
+            'default_model': model_manager.get_default_model(),
+            'timestamp': current_app.config.get('STARTUP_TIME', 'unknown')
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting model status: {e}")
+        return jsonify({
+            'error': 'Failed to get model status',
+            'ollama_healthy': False,
+            'models_ready': False
         }), 500
 
 

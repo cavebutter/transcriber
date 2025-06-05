@@ -26,7 +26,7 @@ class JobStatus(enum.Enum):
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -84,6 +84,9 @@ class Job(db.Model):
     def __init__(self, **kwargs):
         super(Job, self).__init__(**kwargs)
         if self.expires_at is None:
+            # Set created_at now if not already set
+            if self.created_at is None:
+                self.created_at = datetime.utcnow()
             self.expires_at = self.created_at + timedelta(hours=current_app.config['JOB_EXPIRY_HOURS'])
 
     @property

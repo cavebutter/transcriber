@@ -1,6 +1,46 @@
-version: '3.8'
-
 services:
+  # PostgreSQL database - HOST NETWORKING
+  postgres:
+    image: postgres:15-alpine
+    container_name: realrecap_postgres
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - POSTGRES_DB=realrecap
+      - POSTGRES_USER=realrecap
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-realrecap_secure_password_2024}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U realrecap -d realrecap -h localhost -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # Redis for Celery broker/backend - HOST NETWORKING
   redis:
     image: redis:7-alpine
@@ -33,9 +73,11 @@ services:
     volumes:
       - ollama_models:/root/.ollama
       - ./ollama-models:/tmp/models  # Mount local models for import
+      - ./scripts:/app/scripts  # Mount initialization scripts
     environment:
       - OLLAMA_HOST=0.0.0.0
       - CUDA_VISIBLE_DEVICES=0
+    entrypoint: ["/bin/bash", "/app/scripts/ollama-entrypoint.sh"]
     deploy:
       resources:
         limits:
@@ -49,11 +91,11 @@ services:
               count: 1
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: ["CMD", "sh", "-c", "ollama list && test -f /tmp/ollama-models-ready"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      timeout: 15s
+      retries: 10
+      start_period: 300s  # Allow 5 minutes for model downloads
 
   # Main Flask webapp - HOST NETWORKING
   webapp:
@@ -67,7 +109,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
-      - DATABASE_URL=sqlite:///realrecap.db
+      - DATABASE_URL=postgresql://realrecap:${POSTGRES_PASSWORD:-realrecap_secure_password_2024}@localhost:5432/realrecap
       - CELERY_BROKER_URL=redis://localhost:6379/0
       - CELERY_RESULT_BACKEND=redis://localhost:6379/0
       - OLLAMA_HOST=http://localhost:11434
@@ -76,6 +118,8 @@ services:
       - GPU_AVAILABLE=false
       - MAX_CONCURRENT_JOBS=1
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       ollama:
@@ -108,7 +152,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
-      - DATABASE_URL=sqlite:///realrecap.db
+      - DATABASE_URL=postgresql://realrecap:${POSTGRES_PASSWORD:-realrecap_secure_password_2024}@localhost:5432/realrecap
       - CELERY_BROKER_URL=redis://localhost:6379/0
       - CELERY_RESULT_BACKEND=redis://localhost:6379/0
       - OLLAMA_HOST=http://localhost:11434
@@ -116,6 +160,8 @@ services:
       - UPLOAD_FOLDER=/app/uploads
       - CUDA_VISIBLE_DEVICES=0
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       ollama:
@@ -145,10 +191,12 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-me}
-      - DATABASE_URL=sqlite:///realrecap.db
+      - DATABASE_URL=postgresql://realrecap:${POSTGRES_PASSWORD:-realrecap_secure_password_2024}@localhost:5432/realrecap
       - CELERY_BROKER_URL=redis://localhost:6379/0
       - CELERY_RESULT_BACKEND=redis://localhost:6379/0
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     deploy:
@@ -161,6 +209,8 @@ services:
           cpus: '0.1'
 
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
   ollama_models:
